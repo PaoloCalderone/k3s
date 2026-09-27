@@ -3,10 +3,10 @@
 # bootstrap-talos.sh — Bootstrap del cluster K3s 3 CP + 3 Worker
 # Network: 192.168.9.0/24 (VLAN dedicata)
 # Mappatura nodi:
-#   pve1 → k8s-cp-1 (192.168.9.10) + k8s-w1 (192.168.9.10)
-#   pve2 → k8s-cp-2 (192.168.9.11) + k8s-w2 (192.168.9.20)
-#   pve3 → k8s-cp-3 (192.168.9.12) + k8s-w3 (192.168.9.30)
-#   HA VIP: 192.168.9.8 (Load Balancer)
+#   pve1 → k8s-cp1 (192.168.9.11) + k8s-w1 (192.168.9.11)
+#   pve2 → k8s-cp2 (192.168.9.21) + k8s-w2 (192.168.9.22)
+#   pve3 → k8s-cp3 (192.168.9.31) + k8s-w3 (192.168.9.32)
+#   HA VIP: 192.168.9.99 (Load Balancer)
 # =========================================
 
 set -euo pipefail
@@ -17,7 +17,7 @@ set -euo pipefail
 # =========================================
 
 # IP del VIP (Load Balancer) — usato per bootstrap e kubeconfig
-HA_VIP="${HA_VIP:-192.168.9.8}"
+HA_VIP="${HA_VIP:-192.168.9.99}"
 
 # Path alla directory Talos configs (relative allo script)
 TALOS_DIR="$(cd "$(dirname "$0")/../infrastructure/talos" && pwd)"
@@ -26,12 +26,12 @@ TALOS_DIR="$(cd "$(dirname "$0")/../infrastructure/talos" && pwd)"
 OUTPUT_DIR="$(pwd)"
 
 # IP dei nodi del cluster
-CP_IPS=("192.168.9.10" "192.168.9.11" "192.168.9.12")
-WORKER_IPS=("192.168.9.10" "192.168.9.20" "192.168.9.30")
+CP_IPS=("192.168.9.11" "192.168.9.21" "192.168.9.31")
+WORKER_IPS=("192.168.9.12" "192.168.9.22" "192.168.9.32")
 ALL_IPS=("${CP_IPS[@]}" "${WORKER_IPS[@]}")
 
 # Nodi (per bootstrap — usa il VIP, non un singolo nodo)
-CP_NAMES=("k8s-cp-1" "k8s-cp-2" "k8s-cp-3")
+CP_NAMES=("k8s-cp1" "k8s-cp2" "k8s-cp3")
 WORKER_NAMES=("k8s-w1" "k8s-w2" "k8s-w3")
 
 # ============================================================

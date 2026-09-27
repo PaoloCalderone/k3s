@@ -88,9 +88,9 @@
 
 | Nodo | IP | Ruolo |
 |------|----|-------|
-| k8s-cp-1 | 192.168.1.100 | Control Plane 1 (etcd + API) |
-| k8s-cp-2 | 192.168.1.101 | Control Plane 2 (etcd + API) |
-| k8s-cp-3 | 192.168.1.102 | Control Plane 3 (etcd + API) |
+| k8s-cp1 | 192.168.1.100 | Control Plane 1 (etcd + API) |
+| k8s-cp2 | 192.168.1.101 | Control Plane 2 (etcd + API) |
+| k8s-cp3 | 192.168.1.102 | Control Plane 3 (etcd + API) |
 | k8s-w1 | 192.168.1.110 | Worker 1 |
 | k8s-w2 | 192.168.1.111 | Worker 2 |
 | k8s-w3 | 192.168.1.112 | Worker 3 |

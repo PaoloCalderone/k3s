@@ -1,9 +1,9 @@
 # ============================================================
-# Machine Config — NODO 1: Control Plane (192.168.9.10)
-# Mappatura: pve1 → k8s-cp-1 (Control Plane)
+# Machine Config — NODO 1: Control Plane (192.168.9.11)
+# Mappatura: pve1 → k8s-cp1 (Control Plane)
 # Ruolo: etcd + API Server + Scheduler
-# cluster IP: 192.168.9.10 (CP), 192.168.9.10/.20/.30 (Worker)
-# HA VIP: 192.168.9.8
+# cluster IP: 192.168.9.11 (CP), 192.168.9.11/.20/.30 (Worker)
+# HA VIP: 192.168.9.99
 # Network: 192.168.9.0/24 (VLAN dedicata)
 # =========================================
 
@@ -21,13 +21,13 @@ type: config
 # (solitamente eth0 su Talos QEMU)
 # ============================================================
 network:
-  hostname: k8s-cp-1
+  hostname: k8s-cp1
 
   interfaces:
     - interface: eth0  # <<< CAMBIA se la tua interfaccia è diversa
       # IP statico (modifica con il tuo IP)
       addresses:
-        - "192.168.9.10/24"  # IP Control Plane 1
+        - "192.168.9.11/24"  # IP Control Plane 1
       # Gateway (indirizzo del router sulla rete del cluster)
       routes:
         - network: "0.0.0.0/0"
@@ -38,21 +38,21 @@ network:
 
   # Hosts — mappatura nomi IP per tutti i nodi del cluster
   hosts:
-    - ip: "192.168.9.8"
+    - ip: "192.168.9.99"
       domains: ["haproxy-lb"]  # Load Balancer VIP (HA API)
-    - ip: "192.168.9.10"
-      domains: ["k8s-cp-1"]
     - ip: "192.168.9.11"
-      domains: ["k8s-cp-2"]
+      domains: ["k8s-cp1"]
+    - ip: "192.168.9.21"
+      domains: ["k8s-cp2"]
+    - ip: "192.168.9.31"
+      domains: ["k8s-cp3"]
     - ip: "192.168.9.12"
-      domains: ["k8s-cp-3"]
-    - ip: "192.168.9.10"
       domains: ["k8s-w1"]
-    - ip: "192.168.9.20"
+    - ip: "192.168.9.22"
       domains: ["k8s-w2"]
-    - ip: "192.168.9.30"
+    - ip: "192.168.9.32"
       domains: ["k8s-w3"]
-    - ip: "192.168.9.50"  # IP del TrueNAS
+    - ip: "192.168.9.9"  # IP del TrueNAS
       domains: ["truenas"]
 
 # ============================================================
@@ -64,10 +64,10 @@ cluster:
 
   # Endpoint del control plane — il VIP del Load Balancer (NON un singolo nodo!)
   # Questo IP è gestito da HAProxy e bilancia verso i 3 CP
-  controlPlaneEndpoint: "192.168.9.8:6443"  # HA VIP (HAProxy/kube-vip)
+  controlPlaneEndpoint: "192.168.9.99:6443"  # HA VIP (HAProxy/kube-vip)
 
   # IP del nodo corrente (deve corrispondere all'IP statico sopra)
-  nodeIP: "192.168.9.10"
+  nodeIP: "192.168.9.11"
 
   # === K3s Configuration ===
   k3s:
@@ -90,7 +90,7 @@ cluster:
     extraArgs:
       - "--disable=traefik"
       - "--disable=servicelb"
-      - "--node-ip=192.168.9.10"
+      - "--node-ip=192.168.9.11"
       - "--cluster-cidr=10.244.0.0/16"  # Pod CIDR (Flannel)
       - "--service-cidr=10.96.0.0/12"  # Service CIDR
       - "--cluster-dns=10.96.0.10"  # DNS IP (CoreDNS)
@@ -101,13 +101,13 @@ cluster:
 
   # Host dei nodi etcd (tutti i CP tranne se stesso)
   additionalEtcdHosts:
-    - host: "192.168.9.11"  # CP-2
-    - host: "192.168.9.12"  # CP-3
+    - host: "192.168.9.21"  # CP-2
+    - host: "192.168.9.31"  # CP-3
 
   # Host del Kubernetes API (tutti i CP — per il join dei nodi)
   additionalKubeAPIHosts:
-    - host: "192.168.9.11"  # CP-2
-    - host: "192.168.9.12"  # CP-3
+    - host: "192.168.9.21"  # CP-2
+    - host: "192.168.9.31"  # CP-3
 
   # IP del Load Balancer (VIP) — tutti i nodi usano questo per comunicare
   # con il cluster Kubernetes
@@ -117,7 +117,7 @@ cluster:
 # Machines (sequenza di configurazione da applicare)
 # ============================================================
 machines:
-  - "k8s-cp-1"  # Hostname del nodo control plane
+  - "k8s-cp1"  # Hostname del nodo control plane
 
 # ============================================================
 # Append (config extra — opzionale)

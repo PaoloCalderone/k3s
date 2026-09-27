@@ -28,13 +28,18 @@ kubeconfig.*
 .terraform.rc
 terraform.tfstate
 terraform.tfstate.backup
+terraform.tfstate.*.backup
 *.tfstate
 *.tfstate.backup
-.terraform.lock.hcl
+*.tfstate.*.backup
+# .terraform.lock.hcl va versionato per rendere riproducibili i provider.
 
-# --- Download locale (ISO scaricate localmente) ---
+# --- Download locale (immagini Talos scaricate localmente) ---
 /tmp/talos-iso/
+.artifacts/
 *.iso
+*.raw
+*.raw.zst
 
 # --- Log e debug ---
 *.log

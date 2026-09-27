@@ -9,7 +9,7 @@ Cluster Kubernetes ad **alta disponibilità** gestito interamente da codice. Zer
 | Hypervisor | Proxmox VE | 3 nodi fisici (pve1, pve2, pve3), 15 GB RAM ciascuno |
 | OS | Talos Linux | Sistema operativo immutable per Kubernetes |
 | Orchestrator | K3s | Kubernetes leggero (single binary) |
-| HA Load Balancer | HAProxy (VM dedicata) | VIP (192.168.9.8) bilancia verso 3 CP |
+| HA Load Balancer | HAProxy (VM dedicata) | VIP (192.168.9.99) bilancia verso 3 CP |
 | Storage | TrueNAS (NFS v4.2) | Storage persistente via NFS CSI |
 | Backup | Proxmox Backup Server (PBS) | Backup a livello hypervisor (VM-level) |
 | Infra IaC | Terraform + OpenTofu | Provisioning VM su Proxmox |
@@ -30,7 +30,7 @@ Cluster Kubernetes ad **alta disponibilità** gestito interamente da codice. Zer
 │  │  Nodo pve1     │  │  Nodo pve2     │  │  Nodo pve3     │                          │
 │  │  (15 GB RAM)   │  │  (15 GB RAM)   │  │  (15 GB RAM)   │                          │
 │  │                │  │                │  │                │                          │
-│  │ k8s-cp-1       │  │ k8s-cp-2       │  │ k8s-cp-3       │  ← Control Plane (3)     │
+│  │ k8s-cp1       │  │ k8s-cp2       │  │ k8s-cp3       │  ← Control Plane (3)     │
 │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 nodi etcd cluster     │
 │  │ 192.168.9.10   │  │ 192.168.9.11   │  │ 192.168.9.12   │                          │
 │  │                │  │                │  │                │                          │
@@ -41,14 +41,14 @@ Cluster Kubernetes ad **alta disponibilità** gestito interamente da codice. Zer
 │                                                                                      │
 │  ┌────────────────┐                                                                  │
 │  │ haproxy-lb     │  ← Load Balancer (VIP)                                           │
-│  │ (1 GB RAM)     │  192.168.9.8:6443 (Kubernetes API)                               │
+│  │ (1 GB RAM)     │  192.168.9.99:6443 (Kubernetes API)                               │
 │  │                │  192.168.9.9 (Traefik HTTP/S)                                    │
 │  │                │  Bilancia verso CP-1 + CP-2 + CP-3                               │
 │  └────────────────┘                                                                  │
 │                                                                                      │
 │  ┌────────────────┐                                                                  │
 │  │ TrueNAS        │  ← NAS Esterno (Storage)                                         │
-│  │ (NFS Server)   │  192.168.9.50 — NFS v4.2                                         │
+│  │ (NFS Server)   │  192.168.9.9 — NFS v4.2                                         │
 │  │ 10 GbE NIC     │  Connection → K8s via 2.5 GbE NICs                               │
 │  └────────────────┘                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────────┘
@@ -63,7 +63,7 @@ Cluster Kubernetes ad **alta disponibilità** gestito interamente da codice. Zer
 │        │               │                  │              │
 │        ▼               ▼                  ▼              │
 │  │  Proxmox VE (3 nodi fisici: pve1, pve2, pve3)   │    │
-│  │  │ k8s-cp-1 │ │ k8s-cp-2 │ │ k8s-cp-3 │          │    │
+│  │  │ k8s-cp1 │ │ k8s-cp2 │ │ k8s-cp3 │          │    │
 │  │  │ Talos/K3s│ │Talos/K3s │ │Talos/K3s │           │    │
 │  │  │ CP node  │ │ CP node  │ │ CP node  │           │    │
 │  │  │ etcd     │ │ etcd     │ │ etcd     │  3-nodes  │    │
@@ -72,7 +72,7 @@ Cluster Kubernetes ad **alta disponibilità** gestito interamente da codice. Zer
 │  ┌──▼──────────┐  │         ┌──▼──────────┐              │
 │  │ haproxy-lb  │  │         │ TrueNAS      │              │
 │  │ (VIP LB)    │  │         │ (NFS Server) │              │
-│  │ 192.168.9.8 │  │         │ NFS v4.2     │              │
+│  │ 192.168.9.99 │  │         │ NFS v4.2     │              │
 │  └─────┬───────┘  │         └──────┬──────┘              │
 │        │          │                │                     │
 │  ┌─────▼──────────▼────────────────▼─────────────────┐  │
@@ -181,15 +181,15 @@ flux bootstrap github \
 |-----------|-------|------|
 | `192.168.9.1` | Gateway / Router | Switch/router della rete fisica |
 | `192.168.9.2` | DNS interno (CoreDNS) | Risolto da `/etc/resolv.conf` |
-| `192.168.9.8` | HA VIP (Load Balancer) | Kubernetes API endpoint: `:6443` |
+| `192.168.9.99` | HA VIP (Load Balancer) | Kubernetes API endpoint: `:6443` |
 | `192.168.9.9` | MetalLB (servizio principale) | Traefik HTTP/S default |
-| `192.168.9.10` | k8s-cp-1 | Control Plane 1 |
-| `192.168.9.11` | k8s-cp-2 | Control Plane 2 |
-| `192.168.9.12` | k8s-cp-3 | Control Plane 3 |
+| `192.168.9.10` | k8s-cp1 | Control Plane 1 |
+| `192.168.9.11` | k8s-cp2 | Control Plane 2 |
+| `192.168.9.12` | k8s-cp3 | Control Plane 3 |
 | `192.168.9.10` | k8s-w1 | Worker 1 |
 | `192.168.9.20` | k8s-w2 | Worker 2 |
 | `192.168.9.30` | k8s-w3 | Worker 3 |
-| `192.168.9.50` | TrueNAS (NFS Server) | Storage persistente |
+| `192.168.9.9` | TrueNAS (NFS Server) | Storage persistente |
 | `192.168.9.99` | Monitoraggio | Prometheus/Grafana |
 | `192.168.9.200-220` | MetalLB pool | Servizi Type:LoadBalancer |
 | `192.168.9.100-254` | DHCP range | Client LAN/WiFi/IoT |

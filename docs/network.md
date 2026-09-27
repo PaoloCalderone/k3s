@@ -27,9 +27,9 @@ Il cluster utilizza 6 nodi (3 Control Plane + 3 Worker) più un Load Balancer (H
 
 | Indirizzo | Hostname | Ruolo | Proxmox Node |
 |-----------|----------|-------|--------------|
-| `192.168.9.10` | `k8s-cp-1` | etcd + API Server + Scheduler | `pve1` |
-| `192.168.9.11` | `k8s-cp-2` | etcd + API Server + Scheduler | `pve2` |
-| `192.168.9.12` | `k8s-cp-3` | etcd + API Server + Scheduler | `pve3` |
+| `192.168.9.10` | `k8s-cp1` | etcd + API Server + Scheduler | `pve1` |
+| `192.168.9.11` | `k8s-cp2` | etcd + API Server + Scheduler | `pve2` |
+| `192.168.9.12` | `k8s-cp3` | etcd + API Server + Scheduler | `pve3` |
 
 ### 2.3 Nodi Worker (3 nodi)
 
@@ -46,15 +46,15 @@ Il cluster utilizza 6 nodi (3 Control Plane + 3 Worker) più un Load Balancer (H
 | `192.168.9.20` | Traefik (Ingress Controller) | Servizio di routing HTTP/HTTPS |
 | `192.168.9.30` | NFS CSI / Longhorn Manager | Storage persistente |
 | `192.168.9.40` | Container Registry | Registrazione immagini Docker |
-| `192.168.9.50` | NAS / TrueNAS | Server NFS (montato su tutti i nodi) |
-| `192.168.9.88` | Servizi di controllo | Backup, NVR, o altri servizi sistems |
+| `192.168.9.9` | NAS / TrueNAS | Server NFS (montato su tutti i nodi) |
+| `192.168.9.998` | Servizi di controllo | Backup, NVR, o altri servizi sistems |
 
 ### 2.5 Control Plane HA — VIP
 
 | Indirizzo | Ruolo | Gestito da |
 |-----------|-------|------------|
-| `192.168.9.8` | VIP etcd + API Server (HA) | kube-vip / HAProxy |
-| `192.168.9.8:6443` | Kubernetes API Endpoint | Bilancia verso i 3 CP |
+| `192.168.9.99` | VIP etcd + API Server (HA) | kube-vip / HAProxy |
+| `192.168.9.99:6443` | Kubernetes API Endpoint | Bilancia verso i 3 CP |
 
 ### 2.6 MetalLB — Servizi Esposti
 
@@ -90,7 +90,7 @@ Queste subnet sono gestite internamente da Kubernetes. Non corrispondono agli IP
 │  │  Nodo pve1     │  │  Nodo pve2     │  │  Nodo pve3     │                          │
 │  │  (15 GB RAM)   │  │  (15 GB RAM)   │  │  (15 GB RAM)   │                          │
 │  │                │  │                │  │                │                          │
-│  │ k8s-cp-1       │  │ k8s-cp-2       │  │ k8s-cp-3       │  ← Control Plane (3)     │
+│  │ k8s-cp1       │  │ k8s-cp2       │  │ k8s-cp3       │  ← Control Plane (3)     │
 │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 nodi etcd cluster     │
 │  │ 192.168.9.10   │  │ 192.168.9.11   │  │ 192.168.9.12   │                          │
 │  │                │  │                │  │                │                          │
@@ -101,20 +101,20 @@ Queste subnet sono gestite internamente da Kubernetes. Non corrispondono agli IP
 │                                                                                      │
 │  ┌────────────────┐                                                                  │
 │  │ haproxy-lb     │  ← Load Balancer (VIP)                                           │
-│  │ (1 GB RAM)     │  192.168.9.8:6443 (Kubernetes API)                               │
+│  │ (1 GB RAM)     │  192.168.9.99:6443 (Kubernetes API)                               │
 │  │                │  192.168.9.9 (Traefik HTTP/S)                                    │
 │  │                │  Bilancia verso CP-1 + CP-2 + CP-3                               │
 │  └────────────────┘                                                                  │
 │                                                                                      │
 │  ┌────────────────┐                                                                  │
 │  │ TrueNAS        │  ← NAS Esterno (Storage)                                         │
-│  │ (NFS Server)   │  192.168.9.50 — NFS v4.2                                         │
+│  │ (NFS Server)   │  192.168.9.9 — NFS v4.2                                         │
 │  │ 10 GbE NIC     │  Connection → K8s via 2.5 GbE NICs                               │
 │  └────────────────┘                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-> **Nota:** `192.168.9.10` è usato sia da `k8s-cp-1` che da `k8s-w1` solo in questa nota esplicativa.
+> **Nota:** `192.168.9.10` è usato sia da `k8s-cp1` che da `k8s-w1` solo in questa nota esplicativa.
 > In realtà, `k8s-w1` usa `192.168.9.10` (come definito nella tabella dei Worker).
 > Se questo crea conflitti, valutare `192.168.9.4` per w1.
 
@@ -139,7 +139,7 @@ Regole firewall consigliate:
 
 | Sorgente | Destinazione | Porta | Scopo |
 |----------|--------------|-------|-------|
-| VLAN K3S | NAS (`192.168.9.50`) | 2049 (NFS) | Montaggio storage |
+| VLAN K3S | NAS (`192.168.9.9`) | 2049 (NFS) | Montaggio storage |
 | LAN principale | VLAN K3S (`.9`) | 80, 443 | Accesso servizi esposti |
 | WAN | VLAN K3S (`.9`) | 80, 443 | Accesso servizi esposti (con firewall) |
 | VLAN K3S | VLAN K3S (`.8:6443`) | 6443 | API K8s (interni) |
@@ -152,15 +152,15 @@ Regole firewall consigliate:
 | `--service-cidr` | `10.96.0.0/12` | `cluster-config.yaml`, machine configs |
 | `--cluster-dns` | `10.96.0.10` | `cluster-config.yaml`, machine configs |
 | `--node-ip` | IP fisico del nodo (es. `192.168.9.10`) | Ogni machine config |
-| `controlPlaneEndpoint` | `192.168.9.8:6443` | `cluster-config.yaml`, ogni machine config |
+| `controlPlaneEndpoint` | `192.168.9.99:6443` | `cluster-config.yaml`, ogni machine config |
 | MetalLB range | `192.168.9.9` + `.200-.220` | `flux/metallb.yaml` |
 
 ## 8. Checklist di Configurazione
 
 - [ ] Gateway/router configurato con inter-VLAN routing tra `192.168.9.0/24` e LAN principale
-- [ ] Firewall regola NFS dal cluster al NAS (`192.168.9.50:2049`)
+- [ ] Firewall regola NFS dal cluster al NAS (`192.168.9.9:2049`)
 - [ ] DHCP configurato su `192.168.9.100` — `192.168.9.254`
 - [ ] IP statici riservati fuori dal DHCP (tutti gli indirizzi `.1` — `.99`)
 - [ ] Interfacce di rete su Proxmox configurate con VLAN tag (se VLAN dedicata)
 - [ ] SSH permettere accesso a tutti gli IP `.10`, `.11`, `.12`, `.10`, `.20`, `.30`
-- [ ] Certificate SAN includono `192.168.9.8` (VIP) e `192.168.9.9` (MetalLB)
+- [ ] Certificate SAN includono `192.168.9.99` (VIP) e `192.168.9.9` (MetalLB)

@@ -23,7 +23,7 @@ IL TUO MAC (laptop)                     IL TUO CLUSTER REMOTO
                           ─────────▶  └─────┴─┴─────┴─┴─────┘
                                      Network: 192.168.9.0/24
                                      NAS: TrueNAS (NFS v4.2)
-                                     LB:  HAProxy (VIP: 192.168.9.8)
+                                     LB:  HAProxy (VIP: 192.168.9.99)
                                      Backup: Proxmox Backup Server (PBS)
 ```
 
@@ -164,14 +164,14 @@ Prima di lanciare Terraform, assicurati di aver mappato correttamente i tuoi nod
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
 │  Nodo Fisico Proxmox  │  VM K8s       │  IP            │  Ruolo K8s                  │
 ├───────────────────────┼───────────────┼────────────────┼───────────────────────────┤
-│  pve1                 │  k8s-cp-1     │  192.168.9.10  │  Control Plane 1          │
+│  pve1                 │  k8s-cp1     │  192.168.9.10  │  Control Plane 1          │
 │  pve1                 │  k8s-w1       │  192.168.9.10  │  Worker 1                 │
-│  pve2                 │  k8s-cp-2     │  192.168.9.11  │  Control Plane 2          │
+│  pve2                 │  k8s-cp2     │  192.168.9.11  │  Control Plane 2          │
 │  pve2                 │  k8s-w2       │  192.168.9.20  │  Worker 2                 │
-│  pve3                 │  k8s-cp-3     │  192.168.9.12  │  Control Plane 3          │
+│  pve3                 │  k8s-cp3     │  192.168.9.12  │  Control Plane 3          │
 │  pve3                 │  k8s-w3       │  192.168.9.30  │  Worker 3                 │
-│  (LB dedicato)        │  haproxy-lb   │  192.168.9.8   │  Load Balancer VIP        │
-│  (NAS dedicato)       │  TrueNAS      │  192.168.9.50  │  NFS Server               │
+│  (LB dedicato)        │  haproxy-lb   │  192.168.9.99   │  Load Balancer VIP        │
+│  (NAS dedicato)       │  TrueNAS      │  192.168.9.9  │  NFS Server               │
 └───────────────────────┴───────────────┴────────────────┴───────────────────────────┘
 ```
 
@@ -187,8 +187,8 @@ cp terraform.tfvars.example terraform.tfvars
 # In particolare:
 #   - proxmox_api_endpoint: il tuo IP Proxmox
 #   - target_nodes: i nomi REALI dei tuoi nodi Proxmox (es. "pve1", "pve2", "pve3")
-#   - HA VIP: 192.168.9.8 (già configurato nell'example)
-#   - truenas_nfs_server: 192.168.9.50 (già configurato nell'example)
+#   - HA VIP: 192.168.9.99 (già configurato nell'example)
+#   - truenas_nfs_server: 192.168.9.9 (già configurato nell'example)
 ```
 
 ### 1.2 Esegui Terraform
@@ -284,10 +284,10 @@ pbs plugin <PBS-HOST>
 pbs repository add k8s-backup <PATH-ON-PBS>
 
 # Backup manuale di una VM:
-pbs backup create --node <PBS-HOST> --vmid 200 --type vm
+pbs backup create --node <PBS-HOST> --vmid 9200 --type vm
 
 # Backup di tutte le VM del cluster (script):
-for vmid in 200 201 202 300 301 302; do
+for vmid in 9200 9201 9202 9300 9301 9302; do
   pbs backup create --node <PBS-HOST> --vmid $vmid --type vm
 done
 ```
@@ -362,7 +362,7 @@ Segui questa checklist per verificare che tutto funzioni:
 - [ ] Talos Linux è installato su tutte le VM K8s
 - [ ] Il cluster K3s è bootstrap (kubectl get nodes → 6 nodi Ready)
 - [ ] Etcd ha 3 membri (talosctl get etcdmember -A)
-- [ ] HAProxy VIP (192.168.9.8) funziona (kubectl get nodes via VIP)
+- [ ] HAProxy VIP (192.168.9.99) funziona (kubectl get nodes via VIP)
 - [ ] Flux CD è installato (`kubectl get pods -n flux-system`)
 - [ ] Flux ha applicato le apps dalla tua repo (`flux sync`)
 - [ ] Renovate è installato come GitHub App
@@ -394,7 +394,7 @@ talosctl get etcdmember -A
 tail -f /var/log/haproxy.log
 
 # Verifica che il VIP sia assegnato all'interfaccia:
-ip addr show | grep 192.168.9.8
+ip addr show | grep 192.168.9.99
 
 # Se il VIP non è assegnato, riavvia HAProxy:
 systemctl restart haproxy
@@ -405,7 +405,7 @@ systemctl restart haproxy
 ```bash
 # Verifica il mount manuale da un nodo worker:
 talosctl shell --nodes 192.168.9.10
-mount -t nfs 192.168.9.50:/mnt/pool/kubernetes /mnt
+mount -t nfs 192.168.9.9:/mnt/pool/kubernetes /mnt
 
 # Controlla l'esport NFS sul TrueNAS (UI TrueNAS):
 # Services → NFS → Export → verifica path e permessi

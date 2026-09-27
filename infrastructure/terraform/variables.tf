@@ -33,9 +33,33 @@ variable "proxmox_storage" {
 # Proxmox Network Bridge
 # ==========================================
 variable "proxmox_network_bridge" {
-  description = "Bridge di rete Proxmox (es. vmbr0, vmbr1)"
+  description = "Bridge di rete Proxmox (vmbr9)"
   type        = string
-  default     = "vmbr0"
+  default     = "vmbr9"
+}
+
+variable "proxmox_vlan_id" {
+  description = "VLAN tag da applicare alla NIC delle VM; null se vmbr9 è una rete untagged/access"
+  type        = number
+  default     = null
+}
+
+variable "talos_template_vm_id" {
+  description = "VMID del template Talos preesistente su Proxmox"
+  type        = number
+  default     = 9000
+}
+
+variable "talos_template_node" {
+  description = "Nodo Proxmox sul quale creare il template Talos"
+  type        = string
+  default     = "pve1"
+}
+
+variable "proxmox_iso_storage" {
+  description = "Datastore file-based usato per scaricare l'immagine Talos (di solito local)"
+  type        = string
+  default     = "local"
 }
 
 # ==========================================
@@ -53,32 +77,36 @@ variable "proxmox_cloudinit_storage" {
 variable "control_plane" {
   description = "Configurazione dei nodi control plane (3 per HA — quorum etcd)"
   type = object({
-    count         = number
-    cpus          = number
-    memory_mb     = number
-    disk_gb       = number
-    ip_start      = string
-    subnet_mask   = string
-    gateway       = string
-    dns_servers   = list(string)
-    name_prefix   = string
-    target_nodes  = list(string)  # 3 nodi Proxmox fisici
-    ha_vip        = string        # IP virtuale del load balancer (VIP)
-    haproxy_vm_id = number        # VMID della VM HAProxy su Proxmox
+    count                = number
+    cpus                 = number
+    memory_mb            = number
+    disk_gb              = number
+    ip_start             = string
+    ip_addresses         = list(string)
+    subnet_mask          = string
+    gateway              = string
+    dns_servers          = list(string)
+    name_prefix          = string
+    target_nodes         = list(string) # 3 nodi Proxmox fisici
+    ha_vip               = string       # IP virtuale del load balancer (VIP)
+    haproxy_vm_id        = number       # VMID della VM HAProxy su Proxmox
+    control_plane_vm_ids = list(number) # VMID espliciti dei tre control-plane
   })
   default = {
-    count         = 3
-    cpus          = 4
-    memory_mb     = 4096
-    disk_gb       = 40
-    ip_start      = "192.168.9.10"  # IP del primo CP
-    subnet_mask   = "255.255.255.0"
-    gateway       = "192.168.9.1"
-    dns_servers   = ["192.168.9.1"]
-    name_prefix   = "k8s-cp"
-    target_nodes  = ["pve1", "pve2", "pve3"]  # 1 CP per nodo fisico Proxmox
-    ha_vip        = "192.168.9.8"     # IP virtuale del Load Balancer (VIP)
-    haproxy_vm_id = 100               # VMID della VM HAProxy su Proxmox
+    count                = 3
+    cpus                 = 4
+    memory_mb            = 4096
+    disk_gb              = 40
+    ip_start             = "192.168.9.11" # mantenuto per compatibilità
+    ip_addresses         = ["192.168.9.11", "192.168.9.21", "192.168.9.31"]
+    subnet_mask          = "255.255.255.0"
+    gateway              = "192.168.9.1"
+    dns_servers          = ["192.168.9.1"]
+    name_prefix          = "k8s-cp"
+    target_nodes         = ["pve1", "pve2", "pve3"]
+    ha_vip               = "192.168.9.99"
+    haproxy_vm_id        = 9099
+    control_plane_vm_ids = [9011, 9021, 9031]
   }
 }
 
@@ -89,6 +117,7 @@ variable "workers" {
   description = "Configurazione dei nodi worker (array di oggetti)"
   type = list(object({
     index       = number
+    vm_id       = number
     cpus        = number
     memory_mb   = number
     disk_gb     = number
@@ -97,27 +126,29 @@ variable "workers" {
     gateway     = string
     dns_servers = list(string)
     name        = string
-    target_node = string  # Nodo Proxmox fisico su cui creare la VM
+    target_node = string # Nodo Proxmox fisico su cui creare la VM
   }))
   default = [
     {
       index       = 0
+      vm_id       = 9012
       cpus        = 4
       memory_mb   = 4096
       disk_gb     = 40
-      ip_address  = "192.168.9.10"
+      ip_address  = "192.168.9.12"
       subnet_mask = "255.255.255.0"
       gateway     = "192.168.9.1"
       dns_servers = ["192.168.9.1"]
       name        = "k8s-w1"
-      target_node = "pve1"  # Distribuito su nodo fisico diverso dal CP
+      target_node = "pve1" # Distribuito su nodo fisico diverso dal CP
     },
     {
       index       = 1
+      vm_id       = 9022
       cpus        = 4
       memory_mb   = 4096
       disk_gb     = 40
-      ip_address  = "192.168.9.20"
+      ip_address  = "192.168.9.22"
       subnet_mask = "255.255.255.0"
       gateway     = "192.168.9.1"
       dns_servers = ["192.168.9.1"]
@@ -126,10 +157,11 @@ variable "workers" {
     },
     {
       index       = 2
+      vm_id       = 9032
       cpus        = 4
       memory_mb   = 4096
       disk_gb     = 40
-      ip_address  = "192.168.9.30"
+      ip_address  = "192.168.9.32"
       subnet_mask = "255.255.255.0"
       gateway     = "192.168.9.1"
       dns_servers = ["192.168.9.1"]
@@ -145,7 +177,7 @@ variable "workers" {
 variable "k3s_token" {
   description = "Token segreto per il cluster K3s (per il join dei nodi)"
   type        = string
-  default     = ""  # Generato da talosctl gen o usato da bootstrap
+  default     = "" # Generato da talosctl gen o usato da bootstrap
 }
 
 variable "k3s_version" {
@@ -157,7 +189,7 @@ variable "k3s_version" {
 variable "k3s_disable" {
   description = "Lista di addon K3s da disabilitare"
   type        = list(string)
-  default     = ["traefik", "servicelb"]  # Usiamo Flux + MetalLB
+  default     = ["traefik", "servicelb"] # Usiamo Flux + MetalLB
 }
 
 variable "k3s_extra_args" {
@@ -206,9 +238,9 @@ variable "metallb_ip_range_end" {
 # TrueNAS NFS — Path del share NFS
 # ==========================================
 variable "truenas_nfs_server" {
-  description = "IP del server TrueNAS (es. 192.168.9.50)"
+  description = "IP del server NFS"
   type        = string
-  default     = "192.168.9.50"
+  default     = "192.168.9.9"
 }
 
 variable "truenas_nfs_path" {
@@ -226,7 +258,7 @@ variable "truenas_nfs_version" {
 variable "truenas_nfs_options" {
   description = "Opzioni di mount NFS"
   type        = string
-  default     "vers=4.2,rw,hard,intr,timeo=60,retrans=2"
+  default     = "vers=4.2,rw,hard,intr,timeo=60,retrans=2"
 }
 
 # ==========================================

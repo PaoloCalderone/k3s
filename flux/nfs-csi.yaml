@@ -62,7 +62,7 @@ spec:
 
   # Server NFS (TrueNAS) — usa l'IP, NON il nome (resolve prima del bootstrap)
   parameters:
-    server: "192.168.9.50"  # IP del TrueNAS (Network: 192.168.9.0/24)
+    server: "192.168.9.9"  # IP del TrueNAS (Network: 192.168.9.0/24)
     share: "/mnt/pool/kubernetes"  # <<< CAMBIA con il path NFS del TrueNAS
 
   # Opzioni di mount

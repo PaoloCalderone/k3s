@@ -18,8 +18,13 @@ proxmox_api_endpoint = "https://<INSERISCI-IP-PROXMOX>:8006/api2/json"
 # ==========================================
 # Storage Proxmox — INSERISCI IL TUO STORAGE
 # ==========================================
-proxmox_storage      = "local-lvm"          # <<< CAMBIA: "local-lvm", "cephfs", "nfs", ecc.
-proxmox_network_bridge = "vmbr0"            # <<< CAMBIA: il tuo bridge VLAN-aware (es. "vmbr1")
+proxmox_storage        = "local-lvm" # <<< CAMBIA: "local-lvm", "cephfs", "nfs", ecc.
+proxmox_network_bridge = "vmbr9"     # bridge VLAN-aware del cluster
+proxmox_vlan_id        = null          # inserisci il VLAN tag solo se vmbr9 è un trunk tagged
+
+talos_template_vm_id = 9000
+talos_template_node  = "pve1"
+proxmox_iso_storage  = "local"
 
 # ==========================================
 # Control Plane — 3 Nodi (HA)
@@ -34,10 +39,11 @@ control_plane = {
   subnet_mask   = "255.255.255.0"
   gateway       = "10.99.9.1"               # <<< CAMBIA: il tuo gateway (es. "192.168.9.1")
   dns_servers   = ["10.99.9.1"]             # <<< CAMBIA: il tuo DNS (es. ["192.168.9.1"])
-  name_prefix   = "k8s-cp"
-  target_nodes  = ["pve1", "pve2", "pve3"]  # <<< CAMBIA: i nomi REALI dei tuoi nodi Proxmox
-  ha_vip        = "10.99.9.8"              # <<< CAMBIA: il tuo HA VIP (es. "192.168.9.8")
-  haproxy_vm_id = 100                       # VMID della VM HAProxy (0 = usa IP pool Proxmox)
+  name_prefix          = "k8s-cp"
+  target_nodes         = ["pve1", "pve2", "pve3"]
+  ha_vip               = "192.168.9.99"
+  haproxy_vm_id        = 9099
+  control_plane_vm_ids = [9011, 9021, 9031]
 }
 
 # ==========================================
@@ -47,6 +53,7 @@ control_plane = {
 workers = [
   {
     index       = 0
+    vm_id       = 9012
     cpus        = 4
     memory_mb   = 4096
     disk_gb     = 40
@@ -59,6 +66,7 @@ workers = [
   },
   {
     index       = 1
+    vm_id       = 9022
     cpus        = 4
     memory_mb   = 4096
     disk_gb     = 40
@@ -71,6 +79,7 @@ workers = [
   },
   {
     index       = 2
+    vm_id       = 9032
     cpus        = 4
     memory_mb   = 4096
     disk_gb     = 40

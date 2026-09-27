@@ -54,7 +54,7 @@ spec:
     #            - key: kubernetes.io/hostname
     #              operator: In
     #              values:
-    #                - k8s-cp-1
+    #                - k8s-cp1
     #                - k8s-w1
     #                - k8s-w2
 

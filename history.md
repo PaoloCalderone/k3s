@@ -21,7 +21,7 @@ Il cluster originale era configurato con **1 Control Plane + 2 Worker**. Questo 
 │  │  Nodo pve1     │  │  Nodo pve2     │  │  Nodo pve3     │                          │
 │  │  (15 GB RAM)   │  │  (15 GB RAM)   │  │  (15 GB RAM)   │                          │
 │  │                │  │                │  │                │                          │
-│  │ k8s-cp-1       │  │ k8s-cp-2       │  │ k8s-cp-3       │  ← Control Plane (3)     │
+│  │ k8s-cp1       │  │ k8s-cp2       │  │ k8s-cp3       │  ← Control Plane (3)     │
 │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 nodi etcd cluster     │
 │  │ 192.168.9.10   │  │ 192.168.9.11   │  │ 192.168.9.12   │                          │
 │  │                │  │                │  │                │                          │
@@ -32,14 +32,14 @@ Il cluster originale era configurato con **1 Control Plane + 2 Worker**. Questo 
 │                                                                                      │
 │  ┌────────────────┐                                                                  │
 │  │ haproxy-lb     │  ← Load Balancer (VIP)                                           │
-│  │ (1 GB RAM)     │  192.168.9.8:6443 (Kubernetes API)                               │
+│  │ (1 GB RAM)     │  192.168.9.99:6443 (Kubernetes API)                               │
 │  │                │  192.168.9.9 (Traefik HTTP/S)                                    │
 │  │                │  Bilancia verso CP-1 + CP-2 + CP-3                               │
 │  └────────────────┘                                                                  │
 │                                                                                      │
 │  ┌────────────────┐                                                                  │
 │  │ TrueNAS        │  ← NAS Esterno (Storage)                                         │
-│  │ (NFS Server)   │  192.168.9.50 — NFS v4.2                                         │
+│  │ (NFS Server)   │  192.168.9.9 — NFS v4.2                                         │
 │  │ 10 GbE NIC     │  Connection → K8s via 2.5 GbE NICs                               │
 │  └────────────────┘                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────────┘

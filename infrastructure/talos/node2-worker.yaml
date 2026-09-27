@@ -1,5 +1,5 @@
 # ============================================================
-# Machine Config — NODO Worker 1 (192.168.9.10)
+# Machine Config — NODO Worker 1 (192.168.9.12)
 # Mappatura: pve1 → k8s-w1 (Worker)
 # Network: 192.168.9.0/24 (VLAN dedicata)
 # =========================================
@@ -15,7 +15,7 @@ network:
   interfaces:
     - interface: eth0  # <<< CAMBIA se la tua interfaccia è diversa
       addresses:
-        - "192.168.9.10/24"  # IP Worker 1
+        - "192.168.9.12/24"  # IP Worker 1
       routes:
         - network: "0.0.0.0/0"
           gateway: "192.168.9.1"  # Gateway del cluster
@@ -24,21 +24,21 @@ network:
 
   # Hosts — mappatura nomi IP per tutti i nodi del cluster
   hosts:
-    - ip: "192.168.9.8"
+    - ip: "192.168.9.99"
       domains: ["haproxy-lb"]  # Load Balancer VIP (HA API)
-    - ip: "192.168.9.10"
-      domains: ["k8s-cp-1"]
     - ip: "192.168.9.11"
-      domains: ["k8s-cp-2"]
+      domains: ["k8s-cp1"]
+    - ip: "192.168.9.21"
+      domains: ["k8s-cp2"]
+    - ip: "192.168.9.31"
+      domains: ["k8s-cp3"]
     - ip: "192.168.9.12"
-      domains: ["k8s-cp-3"]
-    - ip: "192.168.9.10"
       domains: ["k8s-w1"]
-    - ip: "192.168.9.20"
+    - ip: "192.168.9.22"
       domains: ["k8s-w2"]
-    - ip: "192.168.9.30"
+    - ip: "192.168.9.32"
       domains: ["k8s-w3"]
-    - ip: "192.168.9.50"  # IP del TrueNAS
+    - ip: "192.168.9.9"  # IP del TrueNAS
       domains: ["truenas"]
 
 # ============================================================
@@ -48,9 +48,9 @@ cluster:
   name: k3s-homelab
 
   # Il control plane endpoint DEVE essere il VIP del Load Balancer (NON un singolo nodo!)
-  controlPlaneEndpoint: "192.168.9.8:6443"  # HA VIP (HAProxy/kube-vip)
+  controlPlaneEndpoint: "192.168.9.99:6443"  # HA VIP (HAProxy/kube-vip)
 
-  nodeIP: "192.168.9.10"
+  nodeIP: "192.168.9.12"
 
   # === K3s Configuration ===
   k3s:
@@ -66,7 +66,7 @@ cluster:
     dataDir: "/var/lib/rancher/k3s"
 
     extraArgs:
-      - "--node-ip=192.168.9.10"
+      - "--node-ip=192.168.9.12"
       - "--cluster-cidr=10.244.0.0/16"
       - "--service-cidr=10.96.0.0/12"
       - "--cluster-dns=10.96.0.10"

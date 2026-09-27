@@ -1,0 +1,100 @@
+# ============================================================
+# Machine Config — NODO 3: Control Plane (192.168.9.12)
+# Mappatura: pve3 → k8s-cp-3 (Control Plane)
+# Ruolo: etcd + API Server + Scheduler
+# HA VIP: 192.168.9.8
+# Network: 192.168.9.0/24 (VLAN dedicata)
+# =========================================
+
+type: config
+
+# ============================================================
+# Network
+# ============================================================
+network:
+  hostname: k8s-cp-3
+
+  interfaces:
+    - interface: eth0  # <<< CAMBIA se la tua interfaccia è diversa
+      addresses:
+        - "192.168.9.12/24"  # IP Control Plane 3
+      routes:
+        - network: "0.0.0.0/0"
+          gateway: "192.168.9.1"  # Gateway del cluster
+      nameservers:
+        - "192.168.9.1"  # DNS del cluster
+
+  # Hosts — mappatura nomi IP per tutti i nodi del cluster
+  hosts:
+    - ip: "192.168.9.8"
+      domains: ["haproxy-lb"]
+    - ip: "192.168.9.10"
+      domains: ["k8s-cp-1"]
+    - ip: "192.168.9.11"
+      domains: ["k8s-cp-2"]
+    - ip: "192.168.9.12"
+      domains: ["k8s-cp-3"]
+    - ip: "192.168.9.10"
+      domains: ["k8s-w1"]
+    - ip: "192.168.9.20"
+      domains: ["k8s-w2"]
+    - ip: "192.168.9.30"
+      domains: ["k8s-w3"]
+    - ip: "192.168.9.50"  # IP del TrueNAS
+      domains: ["truenas"]
+
+# ============================================================
+# Cluster — configurazione HA (3 nodi etcd)
+# ============================================================
+cluster:
+  name: k3s-homelab
+
+  # Endpoint del control plane — il VIP del Load Balancer (NON un singolo nodo!)
+  controlPlaneEndpoint: "192.168.9.8:6443"  # HA VIP (HAProxy/kube-vip)
+
+  # IP del nodo corrente
+  nodeIP: "192.168.9.12"
+
+  # === K3s Configuration ===
+  k3s:
+    version: "v1.32.2"  # <<< CAMBIA
+
+    # Stesso token del nodo 1!
+    token: "k3s-homelab-token-CHANGE-ME"  # <<< GENERA E CAMBIA!
+
+    disable:
+      - traefik
+      - servicelb
+
+    dataDir: "/var/lib/rancher/k3s"
+
+    extraArgs:
+      - "--disable=traefik"
+      - "--disable=servicelb"
+      - "--node-ip=192.168.9.12"
+      - "--cluster-cidr=10.244.0.0/16"
+      - "--service-cidr=10.96.0.0/12"
+      - "--cluster-dns=10.96.0.10"
+
+  # === etcd — Cluster HA (3 nodi) ===
+  additionalEtcdHosts:
+    - host: "192.168.9.10"  # CP-1
+    - host: "192.168.9.11"  # CP-2
+
+  # === Kubernetes API — Tutti i CP (per il join dei nodi) ===
+  additionalKubeAPIHosts:
+    - host: "192.168.9.10"  # CP-1
+    - host: "192.168.9.11"  # CP-2
+
+# ============================================================
+# Machines
+# ============================================================
+machines:
+  - "k8s-cp-3"
+
+# ============================================================
+# Locale (opzionale)
+# ============================================================
+locale:
+  timezone: "Europe/Rome"  # <<< CAMBIA
+  keyboard: "it"           # <<< CAMBIA

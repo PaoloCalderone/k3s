@@ -1,0 +1,48 @@
+# ============================================================
+# CoreDNS Patch — Config CoreDNS per il Cluster K3s (3 CP + 3 Worker)
+# =========================================
+
+# Patch CoreDNS per ottimizzare le query DNS del cluster.
+# K3s usa CoreDNS per il DNS cluster-internal.
+
+# --- Patch CoreDNS (modifica il file di configurazione) ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health {
+            lameduck 5s
+        }
+        ready
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        forward . /etc/resolv.conf {
+            max_concurrent 1000
+        }
+        cache 30
+        loop
+        reload
+        loadbalance
+    }
+
+# --- Patch Deployment di CoreDNS (se necessario aumentare replica o resources) ---
+# 2 repliche per alta disponibilità
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: kube-system
+spec:
+  replicas: 2  # 2 repliche per alta disponibilità
+
+# --- Patch resource limits per CoreDNS ---
+# Togli i limiti di CPU per evitare OOMKill (CoreDNS è molto leggero)
+# Totale per ogni replica: ~3MB CPU + ~15MB RAM (traccia)

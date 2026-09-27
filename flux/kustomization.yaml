@@ -1,0 +1,32 @@
+# ============================================================
+# Flux Kustomization — Applicazioni del Cluster
+# 3 CP + 3 Worker (HA) con NFS CSI (TrueNAS) + MetalLB
+# =========================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: flux-system
+
+resources:
+  # Infrastruttura di base del cluster (storage, networking)
+  - nfs-csi.yaml         # <<< NFS dal TrueNAS (sostituisce Longhorn)
+  - metallb.yaml         # LoadBalancer per servizi esterni
+  - coredns-patch.yaml   # Patch CoreDNS
+
+  # Repository dalla quale Flux scarica gli aggiornamenti
+  - app-repository.yaml
+
+  # Application — singola app root-level (deploy da repository GitHub)
+  - app-application.yaml
+
+patches:
+  # Patch per abilitare Flux monitoring (se usato)
+  - patch: |
+      apiVersion: fluxcd.io/v1beta2
+      kind: Kustomization
+      metadata:
+        name: all
+      spec:
+        interval: 5m0s
+        retryInterval: 1m0s
+        timeout: 5m0s

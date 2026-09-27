@@ -1,0 +1,105 @@
+# ============================================================
+# Applicazione di Esempio — Deployment + Service + PVC (Storage)
+# Questo file viene deployato da Flux nel cluster K3s
+# Usa storage NFS dal TrueNAS (storage class: true-nas-nfs)
+# =========================================
+
+# --- Namespace ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: example
+  labels:
+    app: example
+
+---
+
+# --- Deployment: Replica 3 del container (su 3 worker) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: example
+  labels:
+    app: nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27  # <<< CAMBIA con l'immagine della tua app
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          # Se hai un secret o configmap da montare:
+          # volumeMounts:
+          #   - name: config
+          #     mountPath: /etc/nginx/conf.d
+          # volumes:
+          #   - name: config
+          #     configMap:
+          #       name: nginx-config
+          # --- Persistent Volume Claim (opzionale — dati su NFS TrueNAS) ---
+          # volumeMounts:
+          #   - name: data
+          #     mountPath: /data
+          # volumes:
+          #   - name: data
+          #     persistentVolumeClaim:
+          #       claimName: nginx-data
+
+---
+
+# --- Service: Espone l'app con un IP esterno (MetalLB) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: example
+  labels:
+    app: nginx
+spec:
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+  type: LoadBalancer  # <<< MetalLB assegnerà un IP dal pool
+
+# Per accedere all'app, trovi l'IP con:
+#   kubectl get svc nginx -n example
+# Poi: curl http://<IP-ASSIGNATO>
+
+# --- Persistent Volume Claim (usando NFS dal TrueNAS) ---
+# (Opzionale — se hai bisogno di storage persistente)
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-data
+  namespace: example
+spec:
+  # Usa la storage class NFS dal TrueNAS
+  storageClassName: true-nas-nfs  # <<< Storage Class definita in nfs-csi.yaml
+  accessModes:
+    - ReadWriteMany  # RWX — accessibile da tutti i pod
+  resources:
+    requests:
+      storage: 10Gi  # <<< CAMBIA con lo spazio necessario
+
+# --- (Opzionale) Ingress — esponi con un nome di dominio ---
+# Usa Traefik o NGINX Ingress Controller per expose con URL:
+#   app.example.com → http://<nginx-service>:80

@@ -1,0 +1,120 @@
+# ============================================================
+# terraform.tfvars.example — TEMPLATE CON VALORI FITTIZI
+# 
+# QUESTO FILE PUÒ ESSERE NEL REPO (non contiene dati reali)
+# 
+# PER USARLO: copia come terraform.tfvars e modifica con i TUOI dati
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# ============================================================
+
+cluster_name    = "k3s-homelab"
+
+# ==========================================
+# Proxmox API Configuration — INSERISCI I TUOI DATI
+# ==========================================
+proxmox_api_endpoint = "https://<INSERISCI-IP-PROXMOX>:8006/api2/json"
+
+# ==========================================
+# Storage Proxmox — INSERISCI IL TUO STORAGE
+# ==========================================
+proxmox_storage      = "local-lvm"          # <<< CAMBIA: "local-lvm", "cephfs", "nfs", ecc.
+proxmox_network_bridge = "vmbr0"            # <<< CAMBIA: il tuo bridge VLAN-aware (es. "vmbr1")
+
+# ==========================================
+# Control Plane — 3 Nodi (HA)
+# NOTA: questi IP sono FITTIZI — sostituisci con i tuoi!
+# ==========================================
+control_plane = {
+  count         = 3
+  cpus          = 4
+  memory_mb     = 4096
+  disk_gb       = 40
+  ip_start      = "10.99.9.10"              # <<< CAMBIA: il tuo primo IP Control Plane (es. "192.168.9.10")
+  subnet_mask   = "255.255.255.0"
+  gateway       = "10.99.9.1"               # <<< CAMBIA: il tuo gateway (es. "192.168.9.1")
+  dns_servers   = ["10.99.9.1"]             # <<< CAMBIA: il tuo DNS (es. ["192.168.9.1"])
+  name_prefix   = "k8s-cp"
+  target_nodes  = ["pve1", "pve2", "pve3"]  # <<< CAMBIA: i nomi REALI dei tuoi nodi Proxmox
+  ha_vip        = "10.99.9.8"              # <<< CAMBIA: il tuo HA VIP (es. "192.168.9.8")
+  haproxy_vm_id = 100                       # VMID della VM HAProxy (0 = usa IP pool Proxmox)
+}
+
+# ==========================================
+# Workers — 3 Nodi (distribuiti sui 3 nodi fisici)
+# NOTA: questi IP sono FITTIZI — sostituisci con i tuoi!
+# ==========================================
+workers = [
+  {
+    index       = 0
+    cpus        = 4
+    memory_mb   = 4096
+    disk_gb     = 40
+    ip_address  = "10.99.9.10"             # <<< CAMBIA: il tuo IP Worker 1 (es. "192.168.9.10")
+    subnet_mask = "255.255.255.0"
+    gateway     = "10.99.9.1"              # <<< CAMBIA: il tuo gateway (es. "192.168.9.1")
+    dns_servers = ["10.99.9.1"]            # <<< CAMBIA: il tuo DNS (es. ["192.168.9.1"])
+    name        = "k8s-w1"
+    target_node = "pve1"                   # <<< CAMBIA: il tuo nodo Proxmox
+  },
+  {
+    index       = 1
+    cpus        = 4
+    memory_mb   = 4096
+    disk_gb     = 40
+    ip_address  = "10.99.9.20"             # <<< CAMBIA: il tuo IP Worker 2 (es. "192.168.9.20")
+    subnet_mask = "255.255.255.0"
+    gateway     = "10.99.9.1"              # <<< CAMBIA: il tuo gateway (es. "192.168.9.1")
+    dns_servers = ["10.99.9.1"]            # <<< CAMBIA: il tuo DNS (es. ["192.168.9.1"])
+    name        = "k8s-w2"
+    target_node = "pve2"                   # <<< CAMBIA
+  },
+  {
+    index       = 2
+    cpus        = 4
+    memory_mb   = 4096
+    disk_gb     = 40
+    ip_address  = "10.99.9.30"             # <<< CAMBIA: il tuo IP Worker 3 (es. "192.168.9.30")
+    subnet_mask = "255.255.255.0"
+    gateway     = "10.99.9.1"              # <<< CAMBIA: il tuo gateway (es. "192.168.9.1")
+    dns_servers = ["10.99.9.1"]            # <<< CAMBIA: il tuo DNS (es. ["192.168.9.1"])
+    name        = "k8s-w3"
+    target_node = "pve3"                   # <<< CAMBIA
+  }
+]
+
+# ==========================================
+# K3s Configuration
+# ==========================================
+k3s_version   = "v1.32.2+k3s1"
+k3s_disable   = ["traefik", "servicelb"]
+
+# ==========================================
+# Network del Cluster (subnet interne a K3s)
+# ==========================================
+pod_cidr        = "10.244.0.0/16"
+service_cidr    = "10.96.0.0/12"
+dns_service_ip  = "10.96.0.10"
+
+# ==========================================
+# MetalLB — IP pool per servizi LoadBalancer
+# (non sovrapporre al DHCP che parte da .100!)
+# NOTA: questi IP sono FITTIZI
+# ==========================================
+metallb_ip_range_start = "10.99.9.200"    # <<< CAMBIA: es. "192.168.9.200"
+metallb_ip_range_end   = "10.99.9.220"    # <<< CAMBIA: es. "192.168.9.220"
+
+# ==========================================
+# TrueNAS — NFS Server
+# NOTA: IP FITTIZIO — sostituisci con il tuo!
+# ==========================================
+truenas_nfs_server  = "10.99.9.50"        # <<< CAMBIA: il tuo IP TrueNAS (es. "192.168.9.50")
+truenas_nfs_path    = "/mnt/pool/kubernetes"
+truenas_nfs_version = "4.2"
+truenas_nfs_options = "vers=4.2,rw,hard,intr,timeo=60,retrans=2"
+
+# ==========================================
+# Talos & Kubernetes Version
+# ==========================================
+talos_version      = "v1.9.3"
+kubernetes_version = "1.32.2"

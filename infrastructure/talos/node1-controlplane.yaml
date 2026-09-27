@@ -1,0 +1,144 @@
+# ============================================================
+# Machine Config — NODO 1: Control Plane (192.168.9.10)
+# Mappatura: pve1 → k8s-cp-1 (Control Plane)
+# Ruolo: etcd + API Server + Scheduler
+# cluster IP: 192.168.9.10 (CP), 192.168.9.10/.20/.30 (Worker)
+# HA VIP: 192.168.9.8
+# Network: 192.168.9.0/24 (VLAN dedicata)
+# =========================================
+
+# Nota: questo file viene generato da:
+#   talosctl gen cluster <nome-cluster> --output <directory>
+# Modifica i valori con quelli del tuo ambiente.
+
+# ============================================================
+# Machine Type
+# ============================================================
+type: config
+
+# ============================================================
+# Network — modifica con il nome della tua interfaccia su Proxmox
+# (solitamente eth0 su Talos QEMU)
+# ============================================================
+network:
+  hostname: k8s-cp-1
+
+  interfaces:
+    - interface: eth0  # <<< CAMBIA se la tua interfaccia è diversa
+      # IP statico (modifica con il tuo IP)
+      addresses:
+        - "192.168.9.10/24"  # IP Control Plane 1
+      # Gateway (indirizzo del router sulla rete del cluster)
+      routes:
+        - network: "0.0.0.0/0"
+          gateway: "192.168.9.1"  # Gateway del cluster
+      # DNS (indirizzo DNS sulla rete del cluster)
+      nameservers:
+        - "192.168.9.1"  # DNS del cluster
+
+  # Hosts — mappatura nomi IP per tutti i nodi del cluster
+  hosts:
+    - ip: "192.168.9.8"
+      domains: ["haproxy-lb"]  # Load Balancer VIP (HA API)
+    - ip: "192.168.9.10"
+      domains: ["k8s-cp-1"]
+    - ip: "192.168.9.11"
+      domains: ["k8s-cp-2"]
+    - ip: "192.168.9.12"
+      domains: ["k8s-cp-3"]
+    - ip: "192.168.9.10"
+      domains: ["k8s-w1"]
+    - ip: "192.168.9.20"
+      domains: ["k8s-w2"]
+    - ip: "192.168.9.30"
+      domains: ["k8s-w3"]
+    - ip: "192.168.9.50"  # IP del TrueNAS
+      domains: ["truenas"]
+
+# ============================================================
+# Cluster — configurazione HA (3 nodi etcd)
+# ============================================================
+cluster:
+  # Nome del cluster (deve essere identico a cluster-config.yaml)
+  name: k3s-homelab
+
+  # Endpoint del control plane — il VIP del Load Balancer (NON un singolo nodo!)
+  # Questo IP è gestito da HAProxy e bilancia verso i 3 CP
+  controlPlaneEndpoint: "192.168.9.8:6443"  # HA VIP (HAProxy/kube-vip)
+
+  # IP del nodo corrente (deve corrispondere all'IP statico sopra)
+  nodeIP: "192.168.9.10"
+
+  # === K3s Configuration ===
+  k3s:
+    version: "v1.32.2"  # <<< CAMBIA se vuoi un'altra versione
+
+    # Token per il join dei nodi (stesso token su tutti i nodi)
+    # Generato da: talosctl gen cluster <cluster-name>
+    token: "k3s-homelab-token-CHANGE-ME"  # <<< GENERA E CAMBIA!
+
+    # Addon da disabilitare (lista vuota = tutti abilitati)
+    # Disabilitiamo traefik e servicelb — usiamo Flux + MetalLB
+    disable:
+      - traefik
+      - servicelb
+
+    # Dir data directory (opzionale)
+    dataDir: "/var/lib/rancher/k3s"
+
+    # Extra args passati al binary K3s (es. --cluster-cidr, --service-cidr)
+    extraArgs:
+      - "--disable=traefik"
+      - "--disable=servicelb"
+      - "--node-ip=192.168.9.10"
+      - "--cluster-cidr=10.244.0.0/16"  # Pod CIDR (Flannel)
+      - "--service-cidr=10.96.0.0/12"  # Service CIDR
+      - "--cluster-dns=10.96.0.10"  # DNS IP (CoreDNS)
+
+  # === etcd — Cluster HA (3 nodi) ===
+  # In un cluster HA con 3 CP, ogni CP deve conoscere gli altri CP
+  # per formare il cluster etcd.
+
+  # Host dei nodi etcd (tutti i CP tranne se stesso)
+  additionalEtcdHosts:
+    - host: "192.168.9.11"  # CP-2
+    - host: "192.168.9.12"  # CP-3
+
+  # Host del Kubernetes API (tutti i CP — per il join dei nodi)
+  additionalKubeAPIHosts:
+    - host: "192.168.9.11"  # CP-2
+    - host: "192.168.9.12"  # CP-3
+
+  # IP del Load Balancer (VIP) — tutti i nodi usano questo per comunicare
+  # con il cluster Kubernetes
+  # (già configurato via controlPlaneEndpoint sopra)
+
+# ============================================================
+# Machines (sequenza di configurazione da applicare)
+# ============================================================
+machines:
+  - "k8s-cp-1"  # Hostname del nodo control plane
+
+# ============================================================
+# Append (config extra — opzionale)
+# ============================================================
+# append: false  # Per default, Talos usa solo il config specificato
+
+# ============================================================
+# Locale (opzionale)
+# ============================================================
+locale:
+  timezone: "Europe/Rome"  # <<< CAMBIA con il tuo fuso
+  keyboard: "it"           # <<< CAMBIA con la tua tastiera
+
+# ============================================================
+# Registry (registri Docker containeri — opzionale)
+# ============================================================
+# registry:
+#   mirrors: {}  # Se hai un registry locale, definisci qui i mirror
+
+# ============================================================
+# Sysctl (kernel parameters — opzionale per tweak pro)
+# ============================================================
+# sysctl:
+#   net.core.bpf_jit_harden: "2"  # Esempio: harden BPF

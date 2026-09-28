@@ -1,104 +1,41 @@
-# ============================================================
-# NFS CSI — Storage Persistente dal TrueNAS
-# Sostituisce Longhorn: dati su NAS esterno (TrueNAS), backup PBS a livello hypervisor
-# =========================================
-
-# --- NFS CSI Driver (provisioner e controller) ---
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: GitRepository
-  name: nfs-csi
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: csi-driver-nfs
   namespace: flux-system
 spec:
-  interval: 1h0m0s
-  url: "https://github.com/kubernetes-csi/csi-driver-nfs.git"
-  ref:
-    tag: "v4.12.0"  # <<< AGGIORNA periodicamente
-
+  interval: 1h
+  url: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
 ---
-
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
-  namespace: kube-system
-spec:
-  interval: 30m0s
-  chart: csi-driver-nfs
-  chartRef:
-    name: nfs-csi
-    kind: GitRepository
-  values:
-    # Use the latest version of the CSI driver
-    version: "v4.12.0"
-
-    # Mount options for NFS
-    mountOptions:
-      - "vers=4.2"
-      - "rw"
-      - "hard"
-      - "timeo=60"
-      - "retrans=2"
-
-    # Controller pod settings
-    controller:
-      replicaCount: 2  # 2 repliche per HA
-      resources: {}
-
-    # Node settings (ogni nodo montà il NFS)
-    node:
-      resources: {}
-
-    # --- Storage Class per NFS dal TrueNAS ---
-    # Definisci una storage class che punta al TrueNAS
-
-# --- Storage Class: NFS dal TrueNAS ---
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
 metadata:
-  name: true-nas-nfs
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "false"  # Usa Helm per default
+  name: csi-driver-nfs
+  namespace: flux-system
 spec:
-  # Provisioner NFS CSI
-  provisioner: nfs.csi.k8s.io
-
-  # Server NFS (TrueNAS) — usa l'IP, NON il nome (resolve prima del bootstrap)
-  parameters:
-    server: "192.168.9.9"  # IP del TrueNAS (Network: 192.168.9.0/24)
-    share: "/mnt/pool/kubernetes"  # <<< CAMBIA con il path NFS del TrueNAS
-
-  # Opzioni di mount
-  mountOptions:
-    - "vers=4.2"
-    - "rw"
-    - "hard"
-    - "timeo=60"
-    - "retrans=2"
-
-  # Modalità di bind (WaitForFirstConsumer = migliore per cluster distribuiti)
-  # Supporta sia RWO (ReadWriteOnce) che RWX (ReadWriteMany)
-  allowVolumeExpansion: true
-  reclaimPolicy: Retain  # Mantieni i dati se il PVC è eliminato
-  volumeBindingMode: WaitForFirstConsumer  # Crea il volume solo quando serve
-
+  interval: 30m
+  targetNamespace: kube-system
+  chart:
+    spec:
+      chart: csi-driver-nfs
+      version: "4.9.0"
+      sourceRef:
+        kind: HelmRepository
+        name: csi-driver-nfs
+        namespace: flux-system
+      interval: 1h
 ---
-
-# --- Storage Class: Proxmox Local Storage (disco locale sulle VM) ---
-# Usa il disco locale del nodo per dati che non devono andare sul NAS
-# (es. etcd data, container runtime data)
-
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: proxmox-local
+  name: nfs-csi
   annotations:
-    storageclass.kubernetes.io/is-default-class: "false"  # Questo è default
-spec:
-  # Provisioner Kubernetes Local Path (incluso in K3s)
-  provisioner: local-path-provisioner
-
-  # Modalità di bind
-  allowVolumeExpansion: true
-  reclaimPolicy: Delete  # Cancella i dati se il PVC è eliminato
-  volumeBindingMode: WaitForFirstConsumer  # Crea il volume solo quando serve
-
-  # Note: i volumi locali sono presi dal disco locale della VM su Proxmox
-  # Utile per dati temporanei o per etcd (se non si usa etcd embedded K3s)
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: 192.168.9.9
+  share: /mnt/pool/kubernetes
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.2

@@ -1,58 +1,46 @@
-# MetalLB — LoadBalancer per Servizi Esposti al di fuori del Cluster
-#
-# Cluster: 3 CP + 3 Worker HA
-# Network: 192.168.9.0/24 (VLAN dedicata)
-# - MetalLB assegna IP esterni dal pool configurato
-# - I servizi di tipo LoadBalancer ricevono un IP dal pool
-# - Il VIP del Load Balancer (HAProxy) gestisce l'accesso all'API K8s
-# - MetalLB gestisce i servizi esterni (web, API, DB, ecc.)
-
-# --- Pool di IP riservati per MetalLB (non sovrapporre DHCP!) ---
-# Il DHCP parte da .100, MetalLB usa .9 (base) + .200-.220 (pool)
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: metallb-system
-  name: config
-spec:
-  config: |
-    address-pools:
-      - name: default
-        protocol: layer2
-        addresses:
-          - "192.168.9.9"
-          - "192.168.9.200-192.168.9.220"
-
-# --- Installazione di MetalLB via Helm (o kubectl dal manifest ufficiale) ---
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: GitRepository
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
 metadata:
   name: metallb
   namespace: flux-system
 spec:
-  interval: 1h0m0s
-  url: "https://charts.metallb.io"
-  type: oci
-  certCheck: false  # Omelab
-
+  interval: 1h
+  url: https://metallb.github.io/metallb
 ---
-
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: metallb
   namespace: flux-system
 spec:
-  interval: 30m0s
-  chart: metallb
-  chartRef:
-    name: metallb
-    kind: GitRepository
-  values:
-    # Questo è il pool IP che MetalLB userà per i LoadBalancer
-    # Deve essere un range IP che NON è usato da DHCP o altri dispositivi
-    # DHCP parte da .100, MetalLB usa .9 (base) + .200-.220 (pool)
-    controller:
-      resources: {}
-    speaker:
-      resources: {}
+  interval: 30m
+  targetNamespace: metallb-system
+  install:
+    createNamespace: true
+  chart:
+    spec:
+      chart: metallb
+      version: "0.14.9"
+      sourceRef:
+        kind: HelmRepository
+        name: metallb
+        namespace: flux-system
+      interval: 1h
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: homelab
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.9.200-192.168.9.220
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: homelab
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - homelab

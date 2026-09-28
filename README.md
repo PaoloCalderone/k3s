@@ -1,265 +1,89 @@
-# K3s + Talos Linux su Proxmox — Cluster GitOps HA (Rete: 192.168.9.0/24)
+# K3s HA Homelab on Proxmox
 
-Cluster Kubernetes ad **alta disponibilità** gestito interamente da codice. Zero interventi manuali.
+Cluster Kubernetes leggero e altamente disponibile su tre host Proxmox, provisionato con Terraform e configurato con K3s.
 
-## 📋 Panoramica Stack
+## Architettura
 
-| Layer | Tecnologia | Ruolo |
-|-------|------------|-------|
-| Hypervisor | Proxmox VE | 3 nodi fisici (pve1, pve2, pve3), 15 GB RAM ciascuno |
-| OS | Talos Linux | Sistema operativo immutable per Kubernetes |
-| Orchestrator | K3s | Kubernetes leggero (single binary) |
-| HA Load Balancer | HAProxy (VM dedicata) | VIP (192.168.9.99) bilancia verso 3 CP |
-| Storage | TrueNAS (NFS v4.2) | Storage persistente via NFS CSI |
-| Backup | Proxmox Backup Server (PBS) | Backup a livello hypervisor (VM-level) |
-| Infra IaC | Terraform + OpenTofu | Provisioning VM su Proxmox |
-| Bootstrap | talosctl | Creazione e bootstrap cluster |
-| GitOps | Flux CD | Deploy automatico applicazioni dal repo |
-| Versioning | Renovate | Aggiornamenti automatici via PR |
-| **Network** | **192.168.9.0/24** | **VLAN dedicata del cluster** |
+| VM | VMID | Proxmox | IP | Ruolo |
+|---|---:|---|---|---|
+| k8s-cp1 | 9011 | pve1 | 192.168.9.11 | K3s server / embedded etcd |
+| k8s-w1 | 9012 | pve1 | 192.168.9.12 | K3s agent |
+| k8s-cp2 | 9021 | pve2 | 192.168.9.21 | K3s server / embedded etcd |
+| k8s-w2 | 9022 | pve2 | 192.168.9.22 | K3s agent |
+| k8s-cp3 | 9031 | pve3 | 192.168.9.31 | K3s server / embedded etcd |
+| k8s-w3 | 9032 | pve3 | 192.168.9.32 | K3s agent |
 
-## 🏗️ Architettura del Cluster
+- API VIP kube-vip: `192.168.9.99:6443`
+- NFS: `192.168.9.9:/mnt/pool/kubernetes`
+- MetalLB: `192.168.9.200-192.168.9.220` (deve essere escluso dal DHCP)
+- Bridge VM: `vmbr9`, rete `192.168.9.0/24`
+- Management Proxmox: `192.168.0.10`, `.20`, `.30`
 
-### Mappatura Nodi Proxmox → VM Kubernetes (6 VM + 1 LB)
+La precedente VMID `9099` non viene più usata: kube-vip rende l'endpoint API disponibile sui tre control plane senza una VM HAProxy singola.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────┐
-│                         Proxmox VE (3 nodi fisici: pve1, pve2, pve3)                  │
-│                                                                                      │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐                          │
-│  │  Nodo pve1     │  │  Nodo pve2     │  │  Nodo pve3     │                          │
-│  │  (15 GB RAM)   │  │  (15 GB RAM)   │  │  (15 GB RAM)   │                          │
-│  │                │  │                │  │                │                          │
-│  │ k8s-cp1       │  │ k8s-cp2       │  │ k8s-cp3       │  ← Control Plane (3)     │
-│  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 nodi etcd cluster     │
-│  │ 192.168.9.10   │  │ 192.168.9.11   │  │ 192.168.9.12   │                          │
-│  │                │  │                │  │                │                          │
-│  │ k8s-w1         │  │ k8s-w2         │  │ k8s-w3         │  ← Worker (3)           │
-│  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 nodi workload         │
-│  │ 192.168.9.10*  │  │ 192.168.9.20   │  │ 192.168.9.30   │                          │
-│  └────────────────┘  └────────────────┘  └────────────────┘                          │
-│                                                                                      │
-│  ┌────────────────┐                                                                  │
-│  │ haproxy-lb     │  ← Load Balancer (VIP)                                           │
-│  │ (1 GB RAM)     │  192.168.9.99:6443 (Kubernetes API)                               │
-│  │                │  192.168.9.9 (Traefik HTTP/S)                                    │
-│  │                │  Bilancia verso CP-1 + CP-2 + CP-3                               │
-│  └────────────────┘                                                                  │
-│                                                                                      │
-│  ┌────────────────┐                                                                  │
-│  │ TrueNAS        │  ← NAS Esterno (Storage)                                         │
-│  │ (NFS Server)   │  192.168.9.9 — NFS v4.2                                         │
-│  │ 10 GbE NIC     │  Connection → K8s via 2.5 GbE NICs                               │
-│  └────────────────┘                                                                  │
-└──────────────────────────────────────────────────────────────────────────────────────┘
-```
+## Prerequisiti
 
-### Diagramma della Flusso Dati
+- Terraform, kubectl e Flux CLI
+- API token Proxmox in `PROXMOX_VE_API_TOKEN`
+- chiave SSH `~/.ssh/k3s_homelab.pub`
+- connettività dal computer di amministrazione a `192.168.9.0/24`
 
-```
-│  GitHub Repository (monorepo)                           │
-│  │ Terraform  │  │  Flux CD │  │  Renovate / bot  │    │
-│  └─────┬──────┘  └────┬─────┘  └────────┬─────────┘    │
-│        │               │                  │              │
-│        ▼               ▼                  ▼              │
-│  │  Proxmox VE (3 nodi fisici: pve1, pve2, pve3)   │    │
-│  │  │ k8s-cp1 │ │ k8s-cp2 │ │ k8s-cp3 │          │    │
-│  │  │ Talos/K3s│ │Talos/K3s │ │Talos/K3s │           │    │
-│  │  │ CP node  │ │ CP node  │ │ CP node  │           │    │
-│  │  │ etcd     │ │ etcd     │ │ etcd     │  3-nodes  │    │
-│  └──┬──────────┴─┬─────────┴─┬──────────┴───────────┘    │
-│     │             │            │                          │
-│  ┌──▼──────────┐  │         ┌──▼──────────┐              │
-│  │ haproxy-lb  │  │         │ TrueNAS      │              │
-│  │ (VIP LB)    │  │         │ (NFS Server) │              │
-│  │ 192.168.9.99 │  │         │ NFS v4.2     │              │
-│  └─────┬───────┘  │         └──────┬──────┘              │
-│        │          │                │                     │
-│  ┌─────▼──────────▼────────────────▼─────────────────┐  │
-│  │              Kubernetes API Server                 │  │
-│  │          (etcd cluster: 3 repliche HA)             │  │
-│  └─────┬──────────┬────────────────┬────────────────┘  │
-│        │          │                │                    │
-│  ┌─────▼─────┐  ┌─▼────────┐  ┌──▼────────┐          │
-│  │ k8s-w1    │  │k8s-w2    │  │ k8s-w3    │          │
-│  │ (Worker)  │  │(Worker)  │  │(Worker)   │          │
-│  └───────────┘  └──────────┘  └──────────┘          │
-│                                                      │
-│  Storage Layer:                                      │
-│  ├── NFS CSI → TrueNAS (/mnt/pool/kubernetes)          │
-│  ├── Proxmox Local → disco locale delle VM            │
-│  └── Backup → Proxmox Backup Server (PBS)             │
-└────────────────────────────────────────────────────────┘
-```
-
-## 📁 Struttura del Progetto
-
-```
-k3s/
-├── README.md                              # Questo file
-├── docs/                                  # Documentazione completa
-│   ├── network.md                         # Documentazione di rete (nuovo!)
-│   └── 01-step-by-step-guide.md          # Guida passo-passo completa
-├── infrastructure/                        # Infrastruttura come Codice
-│   ├── terraform/                         # Terraform per Proxmox VMs
-│   │   ├── main.tf                       # Creazione 6 VM K3s + HAProxy (HA)
-│   │   ├── variables.tf                  # Variabili configurabili (3+3)
-│   │   ├── outputs.tf                    # Output (kubeconfig, token)
-│   │   ├── providers.tf                  # Provider Proxmox + Talos
-│   │   └── terraform.tfvars.example      # Template variabili da copiare
-│   ├── talos/                             # Configurazione Talos per ogni nodo
-│   │   ├── cluster-config.yaml           # Config Talos cluster (HA)
-│   │   ├── node1-controlplane.yaml       # Machine config nodo CP-1 — pve1
-│   │   ├── node2-controlplane.yaml       # Machine config nodo CP-2 — pve2
-│   │   ├── node3-controlplane.yaml       # Machine config nodo CP-3 — pve3
-│   │   ├── node2-worker.yaml             # Machine config Worker 1 — pve1
-│   │   ├── node3-worker.yaml             # Machine config Worker 2 — pve2
-│   │   └── node4-worker.yaml             # Machine config Worker 3 — pve3
-│   └── renovate/                          # Config Renovate
-│       ├── renovate.json5                # Regole di aggiornamento
-│       └── fluxbot-rules.json5           # Regole Fluxbot schematics
-├── flux/                                  # GitOps — Applicazioni
-│   ├── kustomization.yaml                # Flux Kustomization root
-│   ├── app-repository.yaml               # Flux Repository verso GitHub
-│   ├── app-application.yaml              # Flux Application per apps
-│   ├── nfs-csi.yaml                       # Storage NFS (TrueNAS)
-│   ├── metallb.yaml                       # LoadBalancer (servizi esterni)
-│   ├── coredns-patch.yaml                # Patch CoreDNS
-│   └── apps/                              # Applicazioni
-│       └── example-deployment.yaml        # Deployment di esempio (nginx)
-└── scripts/                               # Utility script
-    └── bootstrap-talos.sh                # Bootstrap automatico (6 nodi)
-```
-
-## 🚀 Quick Start
-
-### Prerequisiti
-1. Proxmox VE installato e operativo (3 nodi: pve1, pve2, pve3)
-2. Account API Proxmox con privilegi (VM.Allocate, VM.Clone, VM.Config.CDROM, VM.Config.Cloudinit, VM.Config.Hardware, VM.Config.Network, VM.Monitor, VM.Read, AAAA.User.Admin)
-3. `terraform` o `opentofu` installato (>= 1.7)
-4. `talosctl` installato (versione allineata al K8s del cluster)
-5. `kubectl` installato
-6. `flux` CLI installato
-7. Un repository GitHub privato/pubblico per il monorepo
-
-### Primi Passi (una tantum)
-
-Vedi `docs/01-step-by-step-guide.md` per la guida completa.
+## Provisioning
 
 ```bash
-# 1. Clone del repo
-git clone <tuo-repo>
-cd k3s
-
-# 2. Setup variabili Terraform
-cp infrastructure/terraform/terraform.tfvars.example infrastructure/terraform/terraform.tfvars
-# Modifica terraform.tfvars con i tuoi dati Proxmox
-
-# 3. Provisioning cluster (6 VM + HAProxy)
 cd infrastructure/terraform
+cp terraform.tfvars.example terraform.tfvars
+source ~/.config/k3s-proxmox.env
 terraform init
+terraform fmt -check
+terraform validate
 terraform plan
+# Applicare solo dopo aver revisionato il piano:
 terraform apply
+```
 
-# 4. Bootstrap K3s (usa VIP, non un singolo nodo!)
-cd ../../scripts/
-./bootstrap-talos.sh
+Terraform crea un template Ubuntu 24.04 cloud-init e sei VM. Non installa K3s e non inserisce token K3s nello state.
 
-# 5. Installa Flux sul cluster
+## Bootstrap K3s
+
+```bash
+cd ../..
+./scripts/bootstrap-k3s.sh
+export KUBECONFIG="$PWD/kubeconfig"
+kubectl get nodes -o wide
+```
+
+Il token viene generato con permessi restrittivi in `~/.config/k3s-homelab/token`. Lo script inizializza il primo server, aggiunge gli altri server, installa kube-vip, quindi aggiunge gli agent.
+
+## GitOps
+
+Dopo la verifica del cluster:
+
+```bash
+flux check --pre
 flux bootstrap github \
-  --owner=<username> \
-  --repository=<repo> \
+  --owner=PaoloCalderone \
+  --repository=k3s-talos-homelab \
   --branch=main \
-  --path=./flux
-
-# 6. Abilita Renovate (in repository settings)
+  --path=clusters/homelab \
+  --personal
 ```
 
-## 📡 Riferimenti di Rete (nuovo schema 192.168.9.0/24)
+Non passare token GitHub sulla riga di comando. Usa l'autenticazione GitHub/Flux supportata.
 
-| Indirizzo | Ruolo | Note |
-|-----------|-------|------|
-| `192.168.9.1` | Gateway / Router | Switch/router della rete fisica |
-| `192.168.9.2` | DNS interno (CoreDNS) | Risolto da `/etc/resolv.conf` |
-| `192.168.9.99` | HA VIP (Load Balancer) | Kubernetes API endpoint: `:6443` |
-| `192.168.9.9` | MetalLB (servizio principale) | Traefik HTTP/S default |
-| `192.168.9.10` | k8s-cp1 | Control Plane 1 |
-| `192.168.9.11` | k8s-cp2 | Control Plane 2 |
-| `192.168.9.12` | k8s-cp3 | Control Plane 3 |
-| `192.168.9.10` | k8s-w1 | Worker 1 |
-| `192.168.9.20` | k8s-w2 | Worker 2 |
-| `192.168.9.30` | k8s-w3 | Worker 3 |
-| `192.168.9.9` | TrueNAS (NFS Server) | Storage persistente |
-| `192.168.9.99` | Monitoraggio | Prometheus/Grafana |
-| `192.168.9.200-220` | MetalLB pool | Servizi Type:LoadBalancer |
-| `192.168.9.100-254` | DHCP range | Client LAN/WiFi/IoT |
+## Validazione minima
 
-Vedi `docs/network.md` per la documentazione completa della rete.
-
-## 🔧 Decisioni Architetturali
-
-### Perché 3 CP + 3 Worker (HA)?
-
-| # Control Plane | HA? | Rischio |
-|----------------|-----|---------|
-| 1 | ❌ No (SPOF) | Unica macchina che tiene il cluster |
-| **3** | ✅ **Sì** | **Resiste a 1 nodo down** (quorum 2/3) |
-| 5 | ⚠️ Overkill | Stesso quorum di 3, doppio costo |
-
-**3 CP garantiscono:**
-- **Quorum etcd:** 3 nodi, quorum di 2 → 1 nodo down = cluster ancora operativo
-- **API Server HA:** un nodo down → gli altri gestiscono le richieste
-- **VIP Load Balancer:** HAProxy indirizza solo ai nodi UP
-
-### Perché HAProxy come Load Balancer?
-
-- **Externalità al cluster:** se il cluster K8s cade, HAProxy (in una VM separata su Proxmox) continua a funzionare
-- **Zero SPOF:** 3 nodi CP + VIP → nessun nodo singolo può far cadere tutto
-- **VM dedicabile a Proxmox:** può anche gestire servizi fuori dal cluster
-
-### Perché TrueNAS (NFS) invece di Longhorn?
-
-| Storage | HA? | Backup | Flexibilità |
-|---------|-----|--------|-------------|
-| **NFS CSI (TrueNAS)** | ✅ Se NAS è HA | ✅ PBS a livello hypervisor | RWX, backup esterno |
-| Longhorn | ⚠️ Parziale (3 repliche locali) | ❌ Nessuno (dipende dai nodi K8s) | Solo su dischi locali |
-
-**Con NFS dal TrueNAS:**
-- I dati vivono sul NAS, non sui dischi locali delle VM
-- Proxmox Backup Server (PBS) fa backup a livello hypervisor (ogni VM è un backup)
-- Il cluster K8s può essere ricreato senza perdere dati
-- Performance su rete 10 GbE dal NAS → 2.5 GbE ai nodi
-
-### Backup con Proxmox Backup Server (PBS)
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Proxmox Backup Server (esterno)                        │
-│  ─────────────────────────────────────────────────────  │
-│  Backup a livello hypervisor (non dentro K8s):           │
-│  • Snapshot VM K8s (ogni VM: CP + Worker)               │
-│  • Schedule automatizzata (cron)                        │
-│  • Retention policy (7 giorni, 4 settimane, 3 mesi)      │
-│  • Restore point-in-time per ogni VM                   │
-└─────────────────────────────────────────────────────────┘
+```bash
+terraform -chdir=infrastructure/terraform validate
+bash -n scripts/bootstrap-k3s.sh
+kubectl kustomize flux >/dev/null
+KUBECONFIG=./kubeconfig kubectl wait --for=condition=Ready nodes --all --timeout=10m
+KUBECONFIG=./kubeconfig kubectl get pods -A
 ```
 
-**Perché PBS invece di backup interno a K8s:**
-- Non consuma risorse del cluster (backup a livello hypervisor)
-- Ogni VM è un backup completo (snapshots)
-- Non dipende dallo stato del cluster K8s
-- Restore di una singola VM senza toccare il cluster
+## Sicurezza e backup
 
-## 📚 Riferimenti
-
-- [Talos Linux Docs](https://www.talos.dev/)
-- [Talos on Proxmox](https://www.talos.dev/docs/v1.9/platform-specific-installations/virtualized-platforms/proxmox)
-- [Talos Terraform Provider](https://registry.terraform.io/providers/siderolabs/talos/latest)
-- [Proxmox Terraform Provider](https://registry.terraform.io/providers/bpg/proxmox/latest)
-- [K3s Docs](https://docs.k3s.io/)
-- [Flux CD](https://fluxcd.io/)
-- [Renovate](https://docs.renovatebot.com/)
-- [NFS CSI Driver](https://github.com/kubernetes-csi/csi-driver-nfs)
-- [MetalLB](https://metallb.io/)
-- [Proxmox Backup Server](https://www.proxmox.com/en/proxmox-backup-server)
-- [docs/network.md](docs/network.md) — Documentazione completa della rete
+- SSH solo tramite chiave; nessuna password nel repository.
+- Il token K3s e il kubeconfig sono ignorati da Git.
+- Abilitare certificati attendibili per Proxmox e poi impostare `insecure = false` nel provider.
+- Configurare snapshot etcd K3s e snapshot/replica dei dati NFS; le snapshot VM non sostituiscono questi backup.

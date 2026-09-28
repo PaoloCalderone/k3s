@@ -68,7 +68,7 @@ Spegnere un solo control plane alla volta e verificare che VIP e API rimangano d
 
 ## 6. Flux
 
-Conservare l'autenticazione GitHub fuori dalla cronologia shell. Eseguire `flux bootstrap github` verso `clusters/homelab`; la directory `flux/` contiene MetalLB, NFS CSI e applicazioni.
+Conservare l'autenticazione GitHub fuori dalla cronologia shell. Eseguire `flux bootstrap github --owner=PaoloCalderone --repository=k3s --personal --branch=main --path=clusters/homelab --version=v2.7.5` (K3s 1.32 non è supportato da Flux 2.9). `clusters/homelab` attiva MetalLB in due fasi; NFS CSI e l'app esempio rimangono disattivati.
 
 Prima della riconciliazione:
 
@@ -77,7 +77,7 @@ kubectl kustomize flux >/tmp/flux-rendered.yaml
 flux check --pre
 ```
 
-MetalLB e NFS CSI introducono CRD tramite Helm. Le risorse custom possono richiedere una riconciliazione successiva all'installazione dei rispettivi controller.
+La Kustomization `metallb-config` dipende dalla Kustomization `metallb`, che attende la HelmRelease Ready (e le CRD) prima di applicare IPAddressPool e L2Advertisement. Verificare che `192.168.9.200-220` sia escluso dal DHCP prima della riconciliazione.
 
 ## 7. Backup
 

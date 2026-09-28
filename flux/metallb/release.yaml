@@ -26,21 +26,3 @@ spec:
         name: metallb
         namespace: flux-system
       interval: 1h
----
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: homelab
-  namespace: metallb-system
-spec:
-  addresses:
-    - 192.168.9.200-192.168.9.220
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: homelab
-  namespace: metallb-system
-spec:
-  ipAddressPools:
-    - homelab

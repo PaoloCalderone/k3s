@@ -63,13 +63,15 @@ Dopo la verifica del cluster:
 flux check --pre
 flux bootstrap github \
   --owner=PaoloCalderone \
-  --repository=k3s-talos-homelab \
+  --repository=k3s \
+  --personal \
   --branch=main \
   --path=clusters/homelab \
+  --version=v2.7.5 \
   --personal
 ```
 
-Non passare token GitHub sulla riga di comando. Usa l'autenticazione GitHub/Flux supportata.
+Non passare token GitHub sulla riga di comando. Usa l'autenticazione GitHub/Flux supportata. Il cluster K3s 1.32 richiede Flux 2.7.x (la CLI 2.9.x richiede Kubernetes 1.33+). `clusters/homelab` riconcilia prima la HelmRelease MetalLB e poi il pool IP, attendendo che l'HelmRelease sia Ready. NFS e l'app esempio non vengono attivati dal bootstrap.
 
 ## Validazione minima
 

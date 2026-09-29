@@ -44,7 +44,7 @@ spec:
         podMonitorSelectorNilHandling: null
         podMonitorNamespaceSelectorNilHandling: null
         retention: 14d
-        retentionSize: 10Gi
+        retentionSize: 10GB
         resources:
           requests:
             cpu: 200m

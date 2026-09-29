@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - metallb.yaml
   - nfs.yaml
+  - monitoring.yaml

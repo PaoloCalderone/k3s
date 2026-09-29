@@ -101,7 +101,20 @@ spec:
             url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/pod.json
             datasource: Prometheus
       sidecar:
+        dashboards:
+          enabled: true
+          searchProvider: folder
+          folder: /tmp/dashboards
         resources: {}
+    # Mount ConfigMap to /tmp/dashboards for sidecar
+    extraVolumes:
+      - name: dashboards-volume
+        configMap:
+          name: monitoring-monitoring-grafana-dashboard-overview
+    extraVolumeMounts:
+      - name: dashboards-volume
+        mountPath: /tmp/dashboards
+        readOnly: true
 
     # ---- kube-state-metrics (pod/node state) ----
     kube-state-metrics:

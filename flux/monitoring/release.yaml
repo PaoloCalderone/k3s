@@ -44,7 +44,6 @@ spec:
         podMonitorSelectorNilHandling: null
         podMonitorNamespaceSelectorNilHandling: null
         retention: 14d
-        retentionSize: 10GB
         resources:
           requests:
             cpu: 200m
@@ -52,13 +51,6 @@ spec:
           limits:
             cpu: 500m
             memory: 1Gi
-        storageSpec:
-          volumeClaimSpecification:
-            accessModes: ["ReadWriteOnce"]
-            storageClassName: "nfs-csi"
-            resources:
-              requests:
-                storage: 10Gi
         serviceMonitor:
           selector: {}
           namespaceSelector:

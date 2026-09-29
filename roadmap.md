@@ -17,6 +17,7 @@
 | **CoreDNS** | ✅ Running | DNS resolution |
 | **Metrics Server** | ✅ Running | Pod resource metrics |
 | **Flannel** | ✅ Running | Pod networking (10.42.0.0/16) |
+| **Flux** | ✅ v2.7.5 | GitOps bootstrap, 5 Kustomizations + 2 HelmReleases all Ready |
 
 ### Known fixes applied
 - kube-vip upgraded from v0.8.9 → v1.2.4 (fixed env-var concatenation bug)
@@ -32,7 +33,7 @@
 ### ✅ P0 — Completed
 
 #### 1. MetalLB (external IPs for services)
-Flux manages `flux/metallb/` then `flux/metallb-config/`. Traefik receives `192.168.9.200`.
+Flux manages `flux/metallb/` (HelmRepository + HelmRelease) then `flux/metallb-config/` (IP pool + L2 advertisement). Traefik receives `192.168.9.200`.
 
 ```bash
 kubectl --kubeconfig=kubeconfig -n kube-system get svc traefik
@@ -41,12 +42,11 @@ kubectl --kubeconfig=kubeconfig -n kube-system get svc traefik
 ### 🟡 P1 — Core homelab services
 
 #### 2. Storage (NFS)
-Flux manages `flux/nfs-driver/` then `flux/nfs-config/`; `nfs-common` must be installed on all nodes. NFS provides persistent shared storage via `192.168.9.9:/mnt/pool/kubernetes`. Keep `local-path` as the default; select `nfs-csi` explicitly on PVCs.
+Flux manages `flux/nfs-driver/` (CSI HelmRelease) and `flux/nfs-config/` (StorageClass). **Blocker:** the TrueNAS NFS export uses `root_squash`, mapping root on the nodes to nobody — writes to the 755 root-owned share are denied. The CSI driver is deployed and ready; once the TrueNAS export is changed to `no_root_squash` (or the share permissions updated to 777), PVCs work immediately.
 
 ```bash
-kubectl --kubeconfig=kubeconfig -n flux-system get kustomizations.kustomize.toolkit.fluxcd.io
 kubectl --kubeconfig=kubeconfig get storageclass
-# Verify with a test PVC and a pod that can read/write its mount.
+# To test after TrueNAS export fix: deploy a PVC with storageClassName: nfs-csi
 ```
 
 #### 3. Monitoring stack
@@ -120,11 +120,10 @@ kubectl --kubeconfig=kubeconfig get pods -A
 # Traefik runs in kube-system
 kubectl --kubeconfig=kubeconfig -n kube-system get svc traefik
 
+# Flux reconciliation status
+flux get kustomizations --kubeconfig=kubeconfig
+flux get helmreleases --kubeconfig=kubeconfig
+
 # Check if VIP is alive
 nc -z 192.168.9.99 6443 && echo "OK" || echo "FAIL"
-
-# Fix bootstrap script for re-runs
-# - kube-vip v1.2.4
-# - address (lowercase) instead of vip_address
-# - no vip_subnet
 ```

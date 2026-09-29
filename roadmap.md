@@ -16,6 +16,7 @@
 | **Traefik** | ✅ LoadBalancer | External IP `192.168.9.200` via MetalLB |
 | **CoreDNS** | ✅ Running | DNS resolution |
 | **Metrics Server** | ✅ Running | Pod resource metrics |
+| **NFS CSI** | ✅ Working | PVC bound, pod mounted, read/write verified on `192.168.9.9:/mnt/main/kubernetes` |
 | **Flannel** | ✅ Running | Pod networking (10.42.0.0/16) |
 | **Flux** | ✅ v2.7.5 | GitOps bootstrap, 5 Kustomizations + 2 HelmReleases all Ready |
 
@@ -23,7 +24,7 @@
 - kube-vip upgraded from v0.8.9 → v1.2.4 (fixed env-var concatenation bug)
 - `vip_address` → `address` (lowercase) + removed `vip_subnet`
 - `bootstrap-k3s.sh` patched for future runs
-- Flux v2.7.5 bootstrapped for K3s 1.32; MetalLB reconciled in CRD-safe order
+- Flux v2.7.5 bootstrapped for K3s 1.32; MetalLB and NFS reconciled in CRD-safe order
 - `192.168.9.200-220` confirmed excluded from DHCP
 
 ---
@@ -41,12 +42,12 @@ kubectl --kubeconfig=kubeconfig -n kube-system get svc traefik
 
 ### 🟡 P1 — Core homelab services
 
-#### 2. Storage (NFS)
-Flux manages `flux/nfs-driver/` (CSI HelmRelease) and `flux/nfs-config/` (StorageClass). **Blocker:** the TrueNAS NFS export uses `root_squash`, mapping root on the nodes to nobody — writes to the 755 root-owned share are denied. The CSI driver is deployed and ready; once the TrueNAS export is changed to `no_root_squash` (or the share permissions updated to 777), PVCs work immediately.
+#### 2. Storage (NFS) — ✅ Working
+Flux manages `flux/nfs-driver/` (CSI HelmRelease) and `flux/nfs-config/` (StorageClass). Writes verified: test PVC bound, pod mounted, file read/write successful on `192.168.9.9:/mnt/main/kubernetes`.
 
 ```bash
 kubectl --kubeconfig=kubeconfig get storageclass
-# To test after TrueNAS export fix: deploy a PVC with storageClassName: nfs-csi
+# Deploy a PVC with storageClassName: nfs-csi to use persistent shared storage.
 ```
 
 #### 3. Monitoring stack

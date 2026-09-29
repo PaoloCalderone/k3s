@@ -1,0 +1,11 @@
+---
+# Root CA ClusterIssuer — generates a self-signed root cert
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: homelab-ca
+spec:
+  ca:
+    secretName: homelab-ca-secret
+    # Optional: common name for the root CA
+    # openssl will show "CN=homelab-ca"

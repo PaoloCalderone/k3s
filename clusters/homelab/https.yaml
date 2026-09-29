@@ -1,0 +1,16 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: https
+  namespace: flux-system
+spec:
+  targetNamespace: monitoring
+  interval: 5m
+  dependsOn:
+    - name: cert-manager
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/https

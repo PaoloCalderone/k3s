@@ -1,0 +1,69 @@
+# K3s Homelab HTTPS — Setup Instructions (Point 4)
+
+## Step 1: Add /etc/hosts entry (one-time, on every device that accesses services)
+
+Run THIS command in your terminal:
+
+    sudo sh -c 'echo "" >> /etc/hosts'
+    sudo sh -c 'echo "# K3s homelab HTTPS — unifi.localdomain" >> /etc/hosts'
+    sudo sh -c 'echo "192.168.9.200  grafana.unifi.localdomain prometheus.unifi.localdomain alertmanager.unifi.localdomain" >> /etc/hosts'
+
+Then verify:
+    grep unifi.localdomain /etc/hosts
+
+## Step 2: Install the CA root certificate (one-time, on every device)
+
+This self-signed CA is not trusted by browsers by default. To avoid the "Not Secure" warning:
+
+### On macOS:
+    sudo cp /etc/hosts.bak.* /etc/hosts  # (skip if you have the entries already)
+    # Import the CA cert into your Keychain:
+    sudo security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db /path/to/ca-certificate
+
+The CA certificate is stored in the Kubernetes secret:
+    kubectl --kubeconfig=kubeconfig -n monitoring get secret unifi-localdomain-tls -o jsonpath='{.data.ca\.crt}' | base64 -d > homelab-ca.pem
+
+Import `homelab-ca.pem` into your macOS Keychain as a Trusted Root Certificate.
+
+### On Linux (Firefox/Chrome):
+    kubectl --kubeconfig=kubeconfig -n monitoring get secret unifi-localdomain-tls \
+      -o jsonpath='{.data.ca\.crt}' | base64 -d > homelab-ca.pem
+    # Add to Firefox: Settings → Privacy & Security → Certificates → View Certificates → Import
+    # Add to Chrome: System settings → Certificates → Authorities → Import
+
+### On iOS/iPadOS:
+    Download homelab-ca.pem and install as a Profile (Settings → General → Profile Management)
+
+## How to access services after HTTPS is set up
+
+Browser URLs:
+    https://grafana.unifi.localdomain      → Grafana (admin / homelab)
+    https://prometheus.unifi.localdomain   → Prometheus
+    https://alertmanager.unifi.localdomain → Alertmanager
+
+## Services exposed via HTTPS
+
+| Service       | URL                                  | Login/Notes              |
+|---------------|--------------------------------------|--------------------------|
+| Grafana       | https://grafana.unifi.localdomain    | admin / homelab          |
+| Prometheus    | https://prometheus.unifi.localdomain | no auth                  |
+| Alertmanager  | https://alertmanager.unifi.localdomain | (needs config fix)       |
+| Traefik API   | https://traefik.unifi.localdomain    | (add IngressRoute if needed) |
+
+## Cert-manager internal CA
+
+CA certificate stored in: `kubeconfig` namespace `monitoring`, secret `unifi-localdomain-tls`
+Key: `ca.crt`
+
+Extract: kubectl --kubeconfig=kubeconfig -n monitoring get secret unifi-localdomain-tls \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d > homelab-ca.pem
+
+## What will change (and how to switch domains later)
+
+To switch from `unifi.localdomain` to e.g. `home.arpa`:
+1. Update /etc/hosts: `grafana.home.arpa` instead of `grafana.unifi.localdomain`
+2. Update IngressRoute CRDs (flux/https/ingressroutes.yaml): change Host() match
+3. Delete old certificate: kubectl --kubeconfig=kubeconfig -n monitoring delete certificate unifi-localdomain
+4. Create new certificate with new domain name, or update the existing one
+
+No services go down. The CA ClusterIssuer and Traefik stay the same.

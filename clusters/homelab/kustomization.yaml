@@ -4,3 +4,5 @@ resources:
   - metallb.yaml
   - nfs.yaml
   - monitoring.yaml
+  - cert-manager.yaml
+  - https.yaml

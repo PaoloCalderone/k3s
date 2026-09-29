@@ -24,6 +24,3 @@ spec:
         name: csi-driver-nfs
         namespace: flux-system
       interval: 1h
-  values:
-    feature:
-      propagateHostMountOptions: true

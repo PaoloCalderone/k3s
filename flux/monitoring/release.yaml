@@ -70,12 +70,9 @@ spec:
     grafana:
       enabled: true
       adminPassword: homelab
+      # For homelab: use emptyDir (data lost on restart, avoids NFS chown issue)
       persistence:
-        enabled: true
-        type: pvc
-        storageClassName: "nfs-csi"
-        accessModes: ["ReadWriteMany"]
-        size: 5Gi
+        enabled: false
       service:
         type: LoadBalancer
         loadBalancerIP: "192.168.9.210"
@@ -87,9 +84,6 @@ spec:
         limits:
           cpu: 200m
           memory: 512Mi
-      # Skip the init-chown-data container which fails on NFS (root_squash)
-      # Grafana container runs as UID 472 by default; fsGroup ensures mount has correct group
-      initChownData: false
       # Pre-load dashboards
       dashboardproviders:
         dashboardproviders.yaml:

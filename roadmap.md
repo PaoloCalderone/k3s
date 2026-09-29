@@ -50,15 +50,18 @@ kubectl --kubeconfig=kubeconfig get storageclass
 # Deploy a PVC with storageClassName: nfs-csi to use persistent shared storage.
 ```
 
-#### 3. Monitoring stack
-- **Prometheus** — scrape all pods
-- **Grafana** — dashboards
-- **Alertmanager** — alerts
+#### 3. Monitoring stack — ✅ Working (2026-09-29)
+- **Prometheus** — scrape all pods (10GB on nfs-csi, 14d retention)
+- **Grafana** — dashboards (LoadBalancer `192.168.9.210:3000`, admin/homelab)
+- **Alertmanager** — alerts (on nfs-csi, 2GB)
 - **kube-state-metrics** — node/pod state
+- **node-exporter** — per-node metrics (running on all 6 nodes)
+- **Prometheus operator** — manages CRDs
 
 ```bash
-# Deploy a version-pinned monitoring HelmRelease through Flux after NFS is tested.
-# Review storage and retention for Prometheus before enabling it.
+# Grafana: http://192.168.9.210:3000 (admin / homelab)
+# Prometheus: kubectl port-forward svc/monitoring-monitoring-kube-prometheus 9090 -n monitoring
+# Alertmanager: kubectl port-forward svc/monitoring-monitoring-kube-alertmanager 9093 -n monitoring
 ```
 
 ### 🟢 P2 — Nice to have

@@ -24,18 +24,5 @@ spec:
         name: csi-driver-nfs
         namespace: flux-system
       interval: 1h
----
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: nfs-csi
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
-provisioner: nfs.csi.k8s.io
-parameters:
-  server: 192.168.9.9
-  share: /mnt/pool/kubernetes
-reclaimPolicy: Retain
-volumeBindingMode: Immediate
-mountOptions:
-  - nfsvers=4.2
+  values:
+    nfsMountOptions: ['no_root_squash']

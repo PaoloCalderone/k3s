@@ -1,4 +1,4 @@
-# k3s-Talos Homelab — Roadmap
+# K3s HA Homelab — Roadmap
 
 > **Base URL (cluster API):** `https://192.168.9.99:6443`
 > **Kubeconfig:** `kubeconfig` (project root)
@@ -13,7 +13,7 @@
 | **6 Nodes** | ✅ Running | 3 CP (CP1/CP2/CP3) + 3 workers (W1/W2/W3) |
 | **k3s** | ✅ v1.32.2+k3s1 | All nodes Ready |
 | **kube-vip** | ✅ v1.2.4 | HA VIP `192.168.9.99:6443` |
-| **Traefik** | ⚠️ Pending LB | Image running, but LoadBalancer IP not allocated (MetalLB missing) |
+| **Traefik** | ✅ LoadBalancer | External IP `192.168.9.200` via MetalLB |
 | **CoreDNS** | ✅ Running | DNS resolution |
 | **Metrics Server** | ✅ Running | Pod resource metrics |
 | **Flannel** | ✅ Running | Pod networking (10.42.0.0/16) |
@@ -22,31 +22,31 @@
 - kube-vip upgraded from v0.8.9 → v1.2.4 (fixed env-var concatenation bug)
 - `vip_address` → `address` (lowercase) + removed `vip_subnet`
 - `bootstrap-k3s.sh` patched for future runs
+- Flux v2.7.5 bootstrapped for K3s 1.32; MetalLB reconciled in CRD-safe order
+- `192.168.9.200-220` confirmed excluded from DHCP
 
 ---
 
 ## 📋 Prioritized Backlog
 
-### 🔴 P0 — Must have before deploying apps
+### ✅ P0 — Completed
 
 #### 1. MetalLB (external IPs for services)
-Allocates real IPs so Traefik and other LoadBalancers work.
+Flux manages `flux/metallb/` then `flux/metallb-config/`. Traefik receives `192.168.9.200`.
 
 ```bash
-kubectl apply -f flux/metallb.yaml
-# Verify: Traefik should get an external IP (not <pending>)
-kubectl -n traefik get svc
+kubectl --kubeconfig=kubeconfig -n kube-system get svc traefik
 ```
 
 ### 🟡 P1 — Core homelab services
 
 #### 2. Storage (NFS)
-Your `flux/nfs-csi.yaml` is ready. NFS gives you persistent, shared storage across nodes.
+Flux manages `flux/nfs-driver/` then `flux/nfs-config/`; `nfs-common` must be installed on all nodes. NFS provides persistent shared storage via `192.168.9.9:/mnt/pool/kubernetes`. Keep `local-path` as the default; select `nfs-csi` explicitly on PVCs.
 
 ```bash
-kubectl apply -f flux/nfs-csi.yaml
-# Verify: storageclass created, can create PVCs
-kubectl get storageclass
+kubectl --kubeconfig=kubeconfig -n flux-system get kustomizations.kustomize.toolkit.fluxcd.io
+kubectl --kubeconfig=kubeconfig get storageclass
+# Verify with a test PVC and a pod that can read/write its mount.
 ```
 
 #### 3. Monitoring stack
@@ -56,11 +56,8 @@ kubectl get storageclass
 - **kube-state-metrics** — node/pod state
 
 ```bash
-# Option A: Simple single-file deploy
-kubectl apply -f https://raw.githubusercontent.com/vektorlab/k3s-install-script/master/manifests/monitoring.yaml
-
-# Option B: Full Prometheus Operator (more flexible)
-kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundled-manifests/prometheus-operator.yaml
+# Deploy a version-pinned monitoring HelmRelease through Flux after NFS is tested.
+# Review storage and retention for Prometheus before enabling it.
 ```
 
 ### 🟢 P2 — Nice to have
@@ -97,20 +94,18 @@ sudo k3s kubectl -n kube-system exec -it $(sudo k3s kubectl -n kube-system get p
 ## 🏗️ Project Structure
 
 ```
-k3s-talos-homelab/
-├── scripts/
-│   └── bootstrap-k3s.sh        # Cluster provisioning (fixed ✅)
+k3s/
+├── clusters/homelab/           # Flux bootstrap and ordered reconciliations
 ├── flux/
-│   ├── metallb.yaml            # [P0] External IP allocator
-│   ├── nfs-csi.yaml            # [P1] Persistent storage
-│   ├── kustomization.yaml      # Flux root
-│   └── apps/                   # Your workloads go here
-│       ├── example-deployment.yaml
-│       └── kustomization.yaml
-├── infrastructure/
-│   └── terraform/              # Node provisioning (VMs/Proxmox)
-├── kubeconfig                  # Saved cluster kubeconfig ✅
-└── roadmap.md                  # This file
+│   ├── metallb/                # HelmRepository + HelmRelease
+│   ├── metallb-config/         # IP pool and L2 advertisement
+│   ├── nfs-driver/             # HelmRepository + HelmRelease
+│   ├── nfs-config/             # Non-default nfs-csi StorageClass
+│   └── apps/                   # Example app (not reconciled)
+├── scripts/bootstrap-k3s.sh
+├── infrastructure/terraform/
+├── kubeconfig                  # Local, ignored by Git
+└── roadmap.md
 ```
 
 ---
@@ -122,8 +117,8 @@ k3s-talos-homelab/
 kubectl --kubeconfig=kubeconfig get nodes -o wide
 kubectl --kubeconfig=kubeconfig get pods -A
 
-# Check Traefik (once MetalLB is deployed)
-kubectl --kubeconfig=kubeconfig -n traefik get svc
+# Traefik runs in kube-system
+kubectl --kubeconfig=kubeconfig -n kube-system get svc traefik
 
 # Check if VIP is alive
 nc -z 192.168.9.99 6443 && echo "OK" || echo "FAIL"

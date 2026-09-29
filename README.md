@@ -71,7 +71,7 @@ flux bootstrap github \
   --personal
 ```
 
-Non passare token GitHub sulla riga di comando. Usa l'autenticazione GitHub/Flux supportata. Il cluster K3s 1.32 richiede Flux 2.7.x (la CLI 2.9.x richiede Kubernetes 1.33+). `clusters/homelab` riconcilia prima la HelmRelease MetalLB e poi il pool IP, attendendo che l'HelmRelease sia Ready. NFS e l'app esempio non vengono attivati dal bootstrap.
+Non passare token GitHub sulla riga di comando. Usa l'autenticazione GitHub/Flux supportata. Il cluster K3s 1.32 richiede Flux 2.7.x (la CLI 2.9.x richiede Kubernetes 1.33+). `clusters/homelab` riconcilia prima la HelmRelease MetalLB e poi il pool IP, attendendo che l'HelmRelease sia Ready. MetalLB e NFS CSI vengono attivati dal bootstrap, ciascuno in due fasi (HelmRelease Ready prima della configurazione); l'app esempio rimane disattivata. Per NFS è necessario `nfs-common` su tutti i nodi. `nfs-csi` non è la StorageClass predefinita: usare `storageClassName: nfs-csi` nei PVC; `local-path` rimane predefinita.
 
 ## Validazione minima
 

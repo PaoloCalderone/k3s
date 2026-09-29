@@ -68,7 +68,7 @@ Spegnere un solo control plane alla volta e verificare che VIP e API rimangano d
 
 ## 6. Flux
 
-Conservare l'autenticazione GitHub fuori dalla cronologia shell. Eseguire `flux bootstrap github --owner=PaoloCalderone --repository=k3s --personal --branch=main --path=clusters/homelab --version=v2.7.5` (K3s 1.32 non è supportato da Flux 2.9). `clusters/homelab` attiva MetalLB in due fasi; NFS CSI e l'app esempio rimangono disattivati.
+Conservare l'autenticazione GitHub fuori dalla cronologia shell. Eseguire `flux bootstrap github --owner=PaoloCalderone --repository=k3s --personal --branch=main --path=clusters/homelab --version=v2.7.5` (K3s 1.32 non è supportato da Flux 2.9). `clusters/homelab` attiva MetalLB e NFS CSI, ciascuno in due fasi; l'app esempio rimane disattivata. NFS CSI richiede `nfs-common` su tutti i nodi e l'export `192.168.9.9:/mnt/pool/kubernetes` raggiungibile dai nodi. La StorageClass `nfs-csi` non è default: selezionarla esplicitamente nel PVC (`storageClassName: nfs-csi`); `local-path` resta default.
 
 Prima della riconciliazione:
 

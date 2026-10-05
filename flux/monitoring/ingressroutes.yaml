@@ -1,0 +1,80 @@
+---
+# Grafana IngressRoute — esposto su grafana.unifi.localdomain
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Grafana"
+    gethomepage.dev/description: "Dashboard e visualizzazioni"
+    gethomepage.dev/group: "Monitoring"
+    gethomepage.dev/icon: "grafana"
+    gethomepage.dev/widget.type: "grafana"
+spec:
+  entryPoints:
+    - websecure
+  tls:
+    secretName: unifi-localdomain-tls
+  routes:
+    - match: Host(`grafana.unifi.localdomain`)
+      kind: Rule
+      services:
+        - name: monitoring-monitoring-grafana
+          port: 3000
+
+---
+# Prometheus IngressRoute — esposto su prometheus.unifi.localdomain
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: prometheus
+  namespace: monitoring
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Prometheus"
+    gethomepage.dev/description: "Metriche e monitoring"
+    gethomepage.dev/group: "Monitoring"
+    gethomepage.dev/icon: "prometheus"
+    gethomepage.dev/widget.type: "prometheus"
+spec:
+  entryPoints:
+    - websecure
+  tls:
+    secretName: unifi-localdomain-tls
+  routes:
+    - match: Host(`prometheus.unifi.localdomain`)
+      kind: Rule
+      services:
+        - name: monitoring-monitoring-kube-prometheus
+          port: 9090
+
+---
+# Alertmanager IngressRoute — esposto su alertmanager.unifi.localdomain
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Alertmanager"
+    gethomepage.dev/description: "Notifiche e allarmi"
+    gethomepage.dev/group: "Monitoring"
+    gethomepage.dev/icon: "alert"
+    gethomepage.dev/widget.type: "alertmanager"
+spec:
+  entryPoints:
+    - websecure
+  tls:
+    secretName: unifi-localdomain-tls
+  routes:
+    - match: Host(`alertmanager.unifi.localdomain`)
+      kind: Rule
+      services:
+        - name: monitoring-monitoring-kube-alertmanager
+          port: 9093

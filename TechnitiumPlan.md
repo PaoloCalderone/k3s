@@ -86,14 +86,23 @@ Questo fa fallire l'avvio del pod Homepage.
 
 ---
 
-### STEP 5: Testing e Validazione (IN CORSO)
-**Script**: `scripts/validate-dashboard.sh` (esiste, da verificare)
+### STEP 5: Testing e Validazione (✅ COMPLETATO)
+**File creati**:
+- `scripts/validate-dashboard.sh` — Script di validazione completo
 
-**Piano**:
-- Verificare risoluzione DNS
-- Verificare accessibilità servizi
-- Verificare widget Homepage funzionanti
-- Verificare pod Homepage avviato con apiKey iniettata
+**Funzionalità dello script**:
+- Verifica namespace dns e flux-system
+- Verifica Technitium DNS pod status e IP
+- Verifica Homepage pod status e initContainer logs
+- Verifica Secret homepage-secrets
+- Verifica Services e IngressRoutes
+- Verifica ConfigMaps (homepage-config, homepage-services, homepage-init-scripts)
+- Verifica risoluzione DNS (se Technitium è operativo)
+
+**Uso**:
+```bash
+./scripts/validate-dashboard.sh
+```
 
 ---
 

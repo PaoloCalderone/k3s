@@ -58,31 +58,42 @@ Questo fa fallire l'avvio del pod Homepage.
 
 ---
 
-### STEP 3: Fix dashboard services (PENDING)
-**File**: `flux/dashboard/homepage-config.yaml`
+### STEP 3: Fix dashboard services (✅ COMPLETATO)
+**File**: Verificato, nessuna modifica necessaria
 
-**Piano**:
-- Aggiornare Prometheus URL da cluster.local a endpoint pubblico Traefik
-- Verificare che tutte le URL siano raggiungibili
+**Verifica**:
+- Homepage services.yaml: tutte le URL puntano a endpoint pubblici Traefik ✅
+- Homepage settings.yaml: prometheus URL interno è corretto (widget kubernetes, non browser) ✅
+- Node Stats widget type: impostato su `iframe` ✅
+- Prometheus widget type: impostato su `prometheus` ✅
+- Grafana widget type: impostato su `grafana` (con apiKey) ✅
 
----
-
-### STEP 4: Aggiornare .gitignore per segreti (PENDING)
-**File**: `.gitignore`
-
-**Piano**:
-- Verificare che `.env`, `.env.local`, `kubeconfig` siano ignorati
-- Creare `flux/dashboard/secret-template` per documentazione
+**Note**:
+- Il Prometheus URL in settings.yaml è CORRETTO (cluster.local) perché è per il widget Kubernetes che legge metriche dal cluster
+- I widget card (Grafana, Prometheus, Traefik) usano servizi.yaml che punta a URL pubblici via Traefik ✅
 
 ---
 
-### STEP 5: Testing e Validazione (PENDING)
-**Script**: `scripts/validate-dns.sh` (NUOVO)
+### STEP 4: Secret templates e .gitignore (✅ COMPLETATO)
+**File creati**:
+- `flux/dashboard/secret-templates/homepage-secrets.yaml.example`
+- `flux/dashboard/secret-templates/.gitignore`
+
+**Verifica**:
+- `.gitignore` già include `*.env`, `*.pem`, `kubeconfig` ✅
+- Template documenta come creare il secret sul cluster
+- Il secret `homepage-secrets` deve essere creato manualmente con: `kubectl create secret generic homepage-secrets ...`
+
+---
+
+### STEP 5: Testing e Validazione (IN CORSO)
+**Script**: `scripts/validate-dashboard.sh` (esiste, da verificare)
 
 **Piano**:
 - Verificare risoluzione DNS
 - Verificare accessibilità servizi
 - Verificare widget Homepage funzionanti
+- Verificare pod Homepage avviato con apiKey iniettata
 
 ---
 

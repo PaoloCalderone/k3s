@@ -1,0 +1,45 @@
+---
+# ConfigMap per Homepage v2 — settings.yaml
+# WARNING: I servizi devono essere in services.yaml (file separato)
+# Questa configurazione contiene SOLO le impostazioni
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+  namespace: flux-system
+data:
+  settings.yaml: |
+    site:
+      title: "Homelab"
+      subtitle: "Dashboard k3s"
+      favicon: "https://gethomepage.dev/v0.8.9/logo.svg"
+      theme: dark
+      color: blue
+      headerStyle: "boxed"
+      squareTiles: true
+      showSearch: true
+      searchProvider: "google"
+      searchPlaceholder: "Cerca servizi..."
+      language: "it"
+      icon: "material-symbols"
+
+    categories:
+      - name: "Monitoring"
+      - name: "Infrastruttura"
+      - name: "Cluster"
+
+    widgets:
+      - kubernetes:
+          mode: cluster
+          node:
+            show: true
+            showCpu: true
+            showMemory: true
+            showUptime: true
+            showOs: true
+            showHostname: true
+
+    prometheus:
+      - url: "http://monitoring-monitoring-kube-prometheus.monitoring.svc.cluster.local:9090"
+        rules: []

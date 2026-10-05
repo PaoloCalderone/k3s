@@ -1,0 +1,88 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "platform": "github",
+  "repositories": ["TUO-USERNAME/k3s-talos-homelab"],
+  "gitAuthor": "Renovate Bot <bot@renovateapp.com>",
+  "onboarding": false,
+  "includeForks": false,
+
+  "labels": ["renovate"],
+  "prTitle": "{{{prefix}}}{{{generateSummaries}}}{{{depositary}}}{{{depNameLong}}}: {{{currentValue}}} → {{{newVersion}}}",
+  "prHourlyLimit": 5,
+  "automerge": true,
+  "automergeType": "pr",
+
+  "packageRules": [
+
+    // --- Talos Linux: grouped, automated ---
+    {
+      "matchDatasources": ["docker"],
+      "matchPackagePatterns": ["talos"],
+      "groupName": "Talos Stack",
+      "automerge": true,
+      "labels": ["renovate", "talos"],
+      "schedule": ["* * * * 1"]  // Controlla ogni lunedì
+    },
+
+    // --- Kubernetes / K3s: grouped, automated ---
+    {
+      "matchDatasources": ["docker"],
+      "matchPackagePatterns": ["k3s"],
+      "groupName": "K3s Stack",
+      "automerge": true,
+      "labels": ["renovate", "k3s"]
+    },
+
+    // --- Terraform providers: grouped, automated ---
+    {
+      "matchManagers": ["terraform"],
+      "groupName": "Terraform",
+      "automerge": true,
+      "labels": ["renovate", "terraform"]
+    },
+
+    // --- Flux CD: grouped, automated ---
+    {
+      "matchManagers": ["flux"],
+      "groupName": "Flux CD",
+      "automerge": true,
+      "labels": ["renovate", "flux"]
+    },
+
+    // --- Helm charts: grouped, automated ---
+    {
+      "matchDatasources": ["helm"],
+      "groupName": "Helm Charts",
+      "automerge": true,
+      "labels": ["renovate", "helm"]
+    },
+
+    // --- Distroless / standard images ---
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["nginx", "redis", "postgres"],
+      "groupName": "App Images",
+      "automerge": true,
+      "labels": ["renovate", "app"]
+    },
+
+    // --- NFS CSI Driver ---
+    {
+      "matchDatasources": ["git-tags"],
+      "matchPackagePatterns": ["csi-driver-nfs"],
+      "groupName": "NFS CSI",
+      "automerge": true,
+      "labels": ["renovate", "nfs-csi"]
+    },
+
+    // --- Version pins ---
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false  // Major requires human approval
+    }
+  ]
+}

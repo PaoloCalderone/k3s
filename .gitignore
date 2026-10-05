@@ -1,0 +1,61 @@
+# ============================================================
+# .gitignore — K3s Talos Homelab
+# File sensibili: MAI nel repository
+# ============================================================
+
+# --- Dati di configurazione reali (contengono IP reali, nomi, segreti) ---
+*.tfvars
+!*.tfvars.example
+
+# --- Credenziali e token ---
+*.pem
+*.key
+*.env
+.env
+.env.local
+.env.*.local
+!env.example
+
+# --- Kubeconfig generato (contiene certificati e token) ---
+.kubeconfig/
+kubeconfig
+kubeconfig.*
+*.conf
+!kubeconfig.example
+
+# --- File temporanei e cache ---
+.terraform/
+.terraform.rc
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.*.backup
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+# .terraform.lock.hcl va versionato per rendere riproducibili i provider.
+
+# --- Download locale (immagini Talos scaricate localmente) ---
+/tmp/talos-iso/
+.artifacts/
+*.iso
+*.raw
+*.raw.zst
+
+# --- Log e debug ---
+*.log
+logs/
+debug.log
+
+# --- OS e Editor ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.bak
+
+# --- Scripts temporanei ---
+*.tmp
+*.tmp.sh

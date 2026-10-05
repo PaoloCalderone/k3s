@@ -1,0 +1,49 @@
+---
+# ConfigMap separato per Homepage v2 — services.yaml
+# Homepage v2.4.0 - servizi raggiungibili dal browser via Traefik
+#
+# NOTA: Grafana API key è in un Kubernetes Secret (homepage-secrets)
+# e viene iniettata via initContainer in /app/config/services.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-services
+  namespace: flux-system
+data:
+  services.yaml: |
+    - Monitoring:
+        - Grafana:
+            url: "https://grafana.unifi.localdomain"
+            description: "Dashboard e visualizzazioni"
+            icon: "grafana"
+            widget:
+              type: "grafana"
+              url: "https://grafana.unifi.localdomain"
+        - Prometheus:
+            url: "https://prometheus.unifi.localdomain"
+            description: "Metriche e monitoring"
+            icon: "prometheus"
+            widget:
+              type: "prometheus"
+              url: "https://prometheus.unifi.localdomain"
+        - Alertmanager:
+            url: "https://alertmanager.unifi.localdomain"
+            description: "Notifiche e allarmi"
+            icon: "alert"
+    - Infrastruttura:
+        - Traefik:
+            url: "https://traefik.unifi.localdomain"
+            description: "Ingress controller"
+            icon: "shield"
+            widget:
+              type: "traefik"
+              url: "https://traefik.unifi.localdomain"
+    - Cluster:
+        - Node Stats:
+            url: "https://node-stats.unifi.localdomain"
+            description: "Statistiche nodi k3s"
+            icon: "server"
+            widget:
+              type: "iframe"
+              url: "https://node-stats.unifi.localdomain"

@@ -1,0 +1,34 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nfs-driver
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/nfs-driver
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: csi-driver-nfs
+      namespace: flux-system
+  timeout: 10m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nfs-config
+  namespace: flux-system
+spec:
+  interval: 10m
+  dependsOn:
+    - name: nfs-driver
+  path: ./flux/nfs-config
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m

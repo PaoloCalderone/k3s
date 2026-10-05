@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fluxcd/flux2/manifests/flux-system/kustomization.yaml",
+  "comments": [
+    "Queste sono le regole per Fluxbot (https://github.com/apps/fluxbot)",
+    "Fluxbot monitora le modifiche allo schema di Talos/Kubernetes",
+    "e crea PR automaticamente per l'aggiornamento dei manifests."
+  ],
+
+  "bot": {
+    "name": "fluxbot",
+    "trigger": {
+      "issues": ["opened", "edited"],
+      "pull_requests": ["opened", "edited", "review_requested"]
+    }
+  },
+
+  // Le regole per Fluxbot: crea PR quando le risorse Talos/K8s cambiano schema
+  "rules": [
+    {
+      "name": "talos-schematic-upgrade",
+      "type": "schematic",
+      "enabled": true,
+      "checks": ["talos-schematic"],
+      "prLabels": ["talos", "automerge"],
+      "prTitle": "upgrade talos schema"
+    },
+    {
+      "name": "kubernetes-upgrade",
+      "type": "kubernetes-version",
+      "enabled": true,
+      "checks": ["kubernetes-version"],
+      "prLabels": ["kubernetes", "automerge"],
+      "prTitle": "upgrade kubernetes version"
+    },
+    {
+      "name": "docker-image-upgrade",
+      "type": "docker-image",
+      "enabled": true,
+      "checks": ["docker-image"],
+      "prLabels": ["docker", "automerge"],
+      "prTitle": "upgrade docker image"
+    },
+    {
+      "name": "nfs-csi-upgrade",
+      "type": "docker-image",
+      "enabled": true,
+      "checks": ["docker-image"],
+      "matchPackageNames": ["nfs-csi"],
+      "prLabels": ["nfs-csi", "automerge"],
+      "prTitle": "upgrade nfs-csi version"
+    }
+  ]
+}

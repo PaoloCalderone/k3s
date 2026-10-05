@@ -1,0 +1,164 @@
+---
+# Service di test per verificare la scoperta automatica su Homepage
+# Accesso: http://test.unifi.localdomain
+# Appare sulla dashboard con nome "Test" e gruppo "Infrastruttura"
+
+---
+# Namespace test
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+  labels:
+    app: homepage-test
+
+---
+# Deployment: nginx con pagina custom "Pagina di Test Homepage"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-page
+  namespace: test
+  labels:
+    app: test-page
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-page
+  template:
+    metadata:
+      labels:
+        app: test-page
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: custom-index
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+      volumes:
+        - name: custom-index
+          configMap:
+            name: test-page-index
+
+---
+# ConfigMap con pagina HTML custom per il test
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-page-index
+  namespace: test
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="it">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Homepage Test</title>
+      <style>
+        body {
+          font-family: system-ui, -apple-system, sans-serif;
+          background: #1a1a2e;
+          color: #e0e0e0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          margin: 0;
+        }
+        .card {
+          background: #16213e;
+          border: 1px solid #0f3460;
+          border-radius: 16px;
+          padding: 48px;
+          text-align: center;
+          max-width: 500px;
+        }
+        h1 {
+          color: #e94560;
+          font-size: 2rem;
+          margin-bottom: 16px;
+        }
+        p {
+          color: #a0a0b0;
+          font-size: 1.1rem;
+          line-height: 1.6;
+        }
+        .badge {
+          display: inline-block;
+          background: #0f3460;
+          color: #53d8fb;
+          padding: 4px 12px;
+          border-radius: 8px;
+          font-size: 0.85rem;
+          margin-top: 16px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>🧪 Homepage Test</h1>
+        <p>
+          Questo servizio conferma che Homepage scopre automaticamente
+          le tue Traefik IngressRoute.<br><br>
+          <strong>Dashboard:</strong> dashboard.unifi.localdomain
+        </p>
+        <span class="badge">test.unifi.localdomain</span>
+      </div>
+    </body>
+    </html>
+
+---
+# Service: ClusterIP (MetalLB non serve per test interno)
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-page
+  namespace: test
+  labels:
+    app: test-page
+spec:
+  selector:
+    app: test-page
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+# IngressRoute Traefik — esposto su test.unifi.localdomain
+# La annotation gethomepage.dev/enabled: "true" dice a Homepage di creare una card.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: test-page
+  namespace: test
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Test"
+    gethomepage.dev/description: "Servizio di test per Homepage"
+    gethomepage.dev/group: "Infrastruttura"
+    gethomepage.dev/icon: "flask"
+spec:
+  entryPoints:
+    - websecure
+  tls:
+    secretName: unifi-localdomain-tls
+  routes:
+    - match: Host(`test.unifi.localdomain`)
+      kind: Rule
+      services:
+        - name: test-page
+          port: 80

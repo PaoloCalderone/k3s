@@ -1,0 +1,492 @@
+---
+# Node Stats — API + Dashboard per CPU/RAM dei nodi k3s
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: node-stats
+  labels:
+    app: node-stats
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-stats-config
+  namespace: node-stats
+data:
+  KUBE_API_HOST: "192.168.9.99"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-stats-reader
+  namespace: node-stats
+  labels:
+    app: node-stats
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-stats-reader
+  labels:
+    app: node-stats
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-stats-reader
+  labels:
+    app: node-stats
+subjects:
+  - kind: ServiceAccount
+    name: node-stats-reader
+    namespace: node-stats
+roleRef:
+  kind: ClusterRole
+  name: node-stats-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-stats-server
+  namespace: node-stats
+data:
+  server.js: |
+              // Node Stats API — proxy per il metrics-server del cluster k3s
+              // Legge /apis/metrics.k8s.io/v1beta1/nodes (metrics-server)
+              // Espone /api/nodes → JSON con CPU/RAM di tutti i nodi
+              // Espone / → Dashboard HTML
+              
+              const https = require('https');
+              const http = require('http');
+              const fs = require('fs');
+              const { execSync } = require('child_process');
+              
+              const PORT = parseInt(process.env.PORT) || 8080;
+              const API_HOST = process.env.KUBE_API_HOST || '192.168.9.99'; // k3s VIP
+              
+              // Leggi il token del service account kubernetes
+              function getToken() {
+                try {
+                  return fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token', 'utf8').trim();
+                } catch (e) {
+                  console.error('⚠️ Token non trovato — le API kubernetes non saranno accessibili');
+                  return '';
+                }
+              }
+              
+              function getCA() {
+                try {
+                  return fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt');
+                } catch (e) {
+                  return undefined;
+                }
+              }
+              
+              // Chiama l'API kubernetes per ottenere i nodi
+              function getNodes() {
+                return new Promise((resolve, reject) => {
+                  const token = getToken();
+                  const ca = getCA();
+              
+                  const options = {
+                    hostname: API_HOST,
+                    port: 6443,
+                    path: '/api/v1/nodes',
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    ca: ca,
+                  };
+              
+                  const req = https.request(options, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => { data += chunk; });
+                    res.on('end', () => {
+                      try { resolve(JSON.parse(data)); }
+                      catch (e) { reject(new Error('Invalid JSON')); }
+                    });
+                  });
+                  req.on('error', reject);
+                  req.setTimeout(10000, () => { req.destroy(); reject(new Error('Request timeout')); });
+                  req.end();
+                });
+              }
+              
+              // Chiama il metrics-server per le metriche
+              function getMetrics() {
+                return new Promise((resolve, reject) => {
+                  const token = getToken();
+                  const ca = getCA();
+              
+                  const options = {
+                    hostname: API_HOST,
+                    port: 6443,
+                    path: '/apis/metrics.k8s.io/v1beta1/nodes',
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    ca: ca,
+                  };
+              
+                  const req = https.request(options, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => { data += chunk; });
+                    res.on('end', () => {
+                      try {
+                        const parsed = JSON.parse(data);
+                        resolve(parsed);
+                      } catch (e) { reject(new Error('Invalid metrics JSON')); }
+                    });
+                  });
+                  req.on('error', reject);
+                  req.setTimeout(10000, () => { req.destroy(); reject(new Error('Request timeout')); });
+                  req.end();
+                });
+              }
+              
+              // Formatta le risorse
+              function formatBytes(bytes) {
+                if (typeof bytes === 'string') bytes = parseInt(bytes.replace(/Ki|Mi|Gi/g, '')) || 0;
+                if (bytes === 0) return '0 B';
+                const units = ['B', 'Ki', 'Mi', 'Gi'];
+                let unitIndex = 0;
+                let val = parseFloat(bytes);
+                if (typeof bytes === 'string' && bytes.includes('Ki')) { unitIndex = 1; val = parseFloat(bytes); }
+                else if (typeof bytes === 'string' && bytes.includes('Mi')) { unitIndex = 2; val = parseFloat(bytes); }
+                else if (typeof bytes === 'string' && bytes.includes('Gi')) { unitIndex = 3; val = parseFloat(bytes); }
+                else { unitIndex = Math.floor(Math.log2(val) / 10); }
+                return val.toFixed(1) + ' ' + units[unitIndex];
+              }
+              
+              function formatMilliCPUs(milli) {
+                return (milli / 1000).toFixed(2) + ' cores';
+              }
+              
+              async function buildStats() {
+                let nodesData = [];
+                let metricsData = {};
+                let error = '';
+              
+                // Ottieni i nodi
+                try {
+                  const nodes = await getNodes();
+                  nodesData = (nodes.items || []).map(n => ({
+                    name: n.metadata.name,
+                    allocatable: n.status.allocatable,
+                    labels: n.metadata.labels || {},
+                  }));
+                } catch (e) {
+                  error = 'Errore lettura nodi: ' + e.message;
+                }
+              
+                // Ottieni le metriche
+                try {
+                  const metrics = await getMetrics();
+                  (metrics.items || []).forEach(m => {
+                    metricsData[m.metadata.name] = m;
+                  });
+                } catch (e) {
+                  error = (error ? error + '; ' : '') + 'metrics-server non disponibile: ' + e.message;
+                }
+              
+                // Combina i dati
+                const stats = nodesData.map(node => {
+                  const metric = metricsData[node.name] || {};
+                  const usage = metric.containers?.reduce((sum, c) => {
+                    sum.cpu += parseFloat(c.usage?.cpu?.replace('Ki', '') || 0);
+                    sum.mem += parseFloat(c.usage?.memory?.replace('Ki', '') || 0);
+                    return sum;
+                  }, { cpu: 0, mem: 0 }) || { cpu: 0, mem: 0 };
+              
+                  // CPU allocatabile
+                  const cpuAllocStr = node.allocatable?.cpu || '0';
+                  const cpuAlloc = parseInt(cpuAllocStr) * 1000; // cores → milli-cores
+                  const cpuUsed = usage.cpu; // Ki → ... no, let's keep it simple
+                  const cpuPct = cpuAlloc > 0 ? Math.round((usage.cpu / (cpuAlloc / 1000)) * 10000) / 100 : 0;
+              
+                  // RAM allocatabile
+                  const memAllocStr = node.allocatable?.memory || '0';
+                  const memAlloc = parseInt(memAllocStr.replace(/Ki|Mi|Gi/g, '')) || 0;
+                  const memUsed = usage.mem;
+                  const memPct = memAlloc > 0 ? Math.round((memUsed / memAlloc) * 10000) / 100 : 0;
+              
+                  return {
+                    name: node.name,
+                    status: 'Ready',
+                    role: Object.keys(node.labels || {}).some(k => k.includes('control-plane')) ? 'control-plane' : 'worker',
+                    cpuUsed: formatMilliCPUs(cpuUsed),
+                    cpuPercent: cpuPct,
+                    memUsed: formatBytes(memUsed),
+                    memPercent: memPct,
+                    memTotal: formatBytes(memAlloc),
+                    kernel: '',
+                    os: '',
+                    timestamp: metric.timestamp || new Date().toISOString(),
+                  };
+                });
+              
+                return {
+                  cluster: 'k3s-homelab',
+                  nodes: stats,
+                  count: stats.length,
+                  error: error || null,
+                  at: new Date().toISOString(),
+                  source: 'metrics-server',
+                };
+              }
+              
+              // HTML Dashboard
+              const DASHBOARD_HTML = `<!DOCTYPE html>
+              <html lang="it">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Cluster Node Stats — k3s Homelab</title>
+                <style>
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body {
+                    font-family: system-ui, -apple-system, sans-serif;
+                    background: #0a0a1a;
+                    color: #e0e0e0;
+                    min-height: 100vh;
+                    padding: 2rem;
+                  }
+                  .header { text-align: center; margin-bottom: 2rem; }
+                  .header h1 { font-size: 1.8rem; color: #53d8fb; margin-bottom: 0.5rem; }
+                  .header p { color: #888; font-size: 0.9rem; margin-bottom: 1rem; }
+                  .error-banner {
+                    background: #2a1a1a; border: 1px solid #e94560; color: #e94560;
+                    padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;
+                  }
+                  .stats-row {
+                    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 1rem; margin-bottom: 2rem;
+                  }
+                  .stat-card {
+                    background: #16213e; border: 1px solid #0f3460;
+                    border-radius: 12px; padding: 1.5rem; text-align: center;
+                  }
+                  .stat-card .label { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+                  .stat-card .value { font-size: 2rem; font-weight: bold; margin-top: 0.5rem; }
+                  .cpu-value { color: #53d8fb; }
+                  .mem-value { color: #f5a623; }
+                  .node-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+                  .node-card {
+                    background: #16213e; border: 1px solid #0f3460;
+                    border-radius: 12px; padding: 1.5rem;
+                  }
+                  .node-card h3 { color: #53d8fb; margin-bottom: 1rem; font-size: 1.1rem; }
+                  .metric-row {
+                    display: flex; justify-content: space-between;
+                    padding: 0.5rem 0; border-bottom: 1px solid #1a1a3e;
+                  }
+                  .metric-row:last-child { border-bottom: none; }
+                  .metric-label { color: #888; }
+                  .metric-value { color: #e0e0e0; font-weight: 500; }
+                  .bar-container {
+                    background: #0a0a2e; border-radius: 4px;
+                    height: 8px; margin-top: 0.5rem; overflow: hidden;
+                  }
+                  .bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+                  .bar-cpu { background: linear-gradient(90deg, #53d8fb, #0f3460); }
+                  .bar-mem { background: linear-gradient(90deg, #f5a623, #e94560); }
+                  .refresh-btn {
+                    background: #0f3460; color: #53d8fb; border: 1px solid #53d8fb;
+                    padding: 0.5rem 1.5rem; border-radius: 8px; cursor: pointer;
+                    font-size: 0.9rem; margin-top: 1rem;
+                  }
+                  .refresh-btn:hover { background: #1a1a4e; }
+                  .badge {
+                    display: inline-block; background: #0f3460; color: #53d8fb;
+                    padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="header">
+                  <h1>🖥️ Cluster Node Statistics</h1>
+                  <p id="timestamp">Caricamento...</p>
+                  <button class="refresh-btn" onclick="loadStats()">🔄 Refresh</button>
+                </div>
+                <div id="error"></div>
+                <div class="stats-row" id="totals">
+                  <div class="stat-card"><div class="label">Nodi Totali</div><div class="value" id="totalNodes">-</div></div>
+                  <div class="stat-card"><div class="label">CPU Cluster</div><div class="value cpu-value" id="totalCPU">-</div></div>
+                  <div class="stat-card"><div class="label">Memoria Cluster</div><div class="value mem-value" id="totalMem">-</div></div>
+                </div>
+                <div class="node-grid" id="nodeGrid"></div>
+                <script>
+                  async function loadStats() {
+                    try {
+                      const res = await fetch('/api/nodes');
+                      const data = await res.json();
+                      document.getElementById('error').innerHTML = data.error
+                        ? '<div class="error-banner">⚠️ ' + data.error + '</div>' : '';
+                      document.getElementById('timestamp').textContent =
+                        'Aggiornato: ' + new Date(data.at).toLocaleString('it-IT');
+                      document.getElementById('totalNodes').textContent = data.count || 0;
+                      const nodes = (data.nodes || []);
+                      const cpuPcts = nodes.map(n => n.cpuPercent || 0);
+                      const memPcts = nodes.map(n => n.memPercent || 0);
+                      const cpuAvg = cpuPcts.length ? (cpuPcts.reduce((a, b) => a + b, 0) / cpuPcts.length).toFixed(1) : '-';
+                      const memAvg = memPcts.length ? (memPcts.reduce((a, b) => a + b, 0) / memPcts.length).toFixed(1) : '-';
+                      document.getElementById('totalCPU').textContent = cpuAvg + '%';
+                      document.getElementById('totalMem').textContent = memAvg + '%';
+                      const grid = document.getElementById('nodeGrid');
+                      if (nodes.length === 0) {
+                        grid.innerHTML = '<div class="error-banner">⚠️ Nessun dato dai nodi. Verifica che il metrics-server sia attivo.</div>';
+                        return;
+                      }
+                      grid.innerHTML = nodes.map(n => {
+                        const cpu = n.cpuPercent || 0;
+                        const mem = n.memPercent || 0;
+                        return '<div class="node-card"><h3>' + n.name + ' <span class="badge">' + (n.role || 'worker') + '</span></h3>' +
+                          '<div class="metric-row"><span class="metric-label">CPU</span><span class="metric-value">' + cpu + '%</span></div>' +
+                          '<div class="bar-container"><div class="bar bar-cpu" style="width:' + cpu + '%"></div></div>' +
+                          '<div class="metric-row" style="margin-top:0.5rem"><span class="metric-label">RAM</span><span class="metric-value">' + mem + '%</span></div>' +
+                          '<div class="bar-container"><div class="bar bar-mem" style="width:' + mem + '%"></div></div>' +
+                          '<div class="metric-row"><span class="metric-label">CPU usata</span><span class="metric-value">' + (n.cpuUsed || '-') + '</span></div>' +
+                          '<div class="metric-row"><span class="metric-label">RAM usata</span><span class="metric-value">' + (n.memUsed || '-') + '</span></div>' +
+                          '<div class="metric-row"><span class="metric-label">RAM totale</span><span class="metric-value">' + (n.memTotal || '-') + '</span></div>' +
+                          '</div>';
+                      }).join('');
+                    } catch (e) {
+                      document.getElementById('error').innerHTML = '<div class="error-banner">⚠️ Errore: ' + e.message + '</div>';
+                    }
+                  }
+                  loadStats();
+                  setInterval(loadStats, 30000);
+                </script>
+              </body>
+              </html>`;
+              
+              // HTTP Server
+              const server = http.createServer((req, res) => {
+                if (req.url.startsWith('/api/nodes')) {
+                  if (req.method !== 'GET') {
+                    res.writeHead(405, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Metodo non consentito' }));
+                  }
+              
+                  buildStats().then(data => {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify(data, null, 2));
+                  }).catch(err => {
+                    res.writeHead(502, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message, cluster: 'k3s-homelab', nodes: [], count: 0, at: new Date().toISOString(), source: 'error' }));
+                  });
+                } else {
+                  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                  res.end(DASHBOARD_HTML);
+                }
+              });
+              
+              server.listen(PORT, '0.0.0.0', () => {
+                console.log('🚀 Node Stats API on http://0.0.0.0:' + PORT);
+                console.log('   GET /api/nodes  → JSON node metrics');
+                console.log('   GET /           → Dashboard HTML');
+                console.log('   KUBE_API_HOST: ' + API_HOST);
+              });
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-stats
+  namespace: node-stats
+  labels:
+    app: node-stats
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-stats
+  template:
+    metadata:
+      labels:
+        app: node-stats
+    spec:
+      serviceAccountName: node-stats-reader
+      containers:
+        - name: node-stats
+          image: node:20-alpine
+          imagePullPolicy: IfNotPresent
+          workingDir: /app
+          command: ["node", "server.js"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PORT
+              value: "8080"
+            - name: KUBE_API_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: node-stats-config
+                  key: KUBE_API_HOST
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: server
+              mountPath: /app/server.js
+              subPath: server.js
+      volumes:
+        - name: server
+          configMap:
+            name: node-stats-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-stats
+  namespace: node-stats
+  labels:
+    app: node-stats
+spec:
+  selector:
+    app: node-stats
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: node-stats
+  namespace: node-stats
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Node Stats"
+    gethomepage.dev/group: "Monitoring"
+    gethomepage.dev/icon: "monitoring"
+    gethomepage.dev/description: "CPU e memoria RAM di tutti i nodi del cluster"
+spec:
+  entryPoints:
+    - websecure
+  tls:
+    secretName: unifi-localdomain-tls
+  routes:
+    - match: Host(`stats.unifi.localdomain`)
+      kind: Rule
+      services:
+        - name: node-stats
+          port: 8080

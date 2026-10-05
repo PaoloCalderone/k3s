@@ -1,0 +1,40 @@
+cluster_name         = "k3s-homelab"
+proxmox_api_endpoint = "https://192.168.0.10:8006/api2/json"
+
+proxmox_storage           = "local-lvm"
+proxmox_iso_storage       = "local"
+proxmox_cloudinit_storage = "local-lvm"
+proxmox_network_bridge    = "vmbr9"
+proxmox_vlan_id           = null
+
+template_node  = "pve1"
+template_vm_id = 9000
+
+ubuntu_image_url    = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+ssh_public_key_file = "~/.ssh/k3s_homelab.pub"
+ssh_username        = "ubuntu"
+
+gateway           = "192.168.9.1"
+dns_servers       = ["192.168.9.1"]
+control_plane_vip = "192.168.9.99"
+
+control_planes = [
+  { name = "k8s-cp1", vm_id = 9011, ip_address = "192.168.9.11", target_node = "pve1", cpus = 4, memory_mb = 4096, disk_gb = 40 },
+  { name = "k8s-cp2", vm_id = 9021, ip_address = "192.168.9.21", target_node = "pve2", cpus = 4, memory_mb = 4096, disk_gb = 40 },
+  { name = "k8s-cp3", vm_id = 9031, ip_address = "192.168.9.31", target_node = "pve3", cpus = 4, memory_mb = 4096, disk_gb = 40 }
+]
+
+workers = [
+  { name = "k8s-w1", vm_id = 9012, ip_address = "192.168.9.12", target_node = "pve1", cpus = 4, memory_mb = 4096, disk_gb = 40 },
+  { name = "k8s-w2", vm_id = 9022, ip_address = "192.168.9.22", target_node = "pve2", cpus = 4, memory_mb = 4096, disk_gb = 40 },
+  { name = "k8s-w3", vm_id = 9032, ip_address = "192.168.9.32", target_node = "pve3", cpus = 4, memory_mb = 4096, disk_gb = 40 }
+]
+
+k3s_version = "v1.32.2+k3s1"
+pod_cidr     = "10.42.0.0/16"
+service_cidr = "10.43.0.0/16"
+cluster_dns  = "10.43.0.10"
+
+nfs_server   = "192.168.9.9"
+nfs_path     = "/mnt/pool/kubernetes"
+metallb_range = "192.168.9.200-192.168.9.220"

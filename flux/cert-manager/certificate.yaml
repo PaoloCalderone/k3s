@@ -1,0 +1,16 @@
+---
+# Certificate for all *.unifi.localdomain services
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: unifi-localdomain
+  namespace: monitoring
+spec:
+  secretName: unifi-localdomain-tls
+  issuerRef:
+    name: homelab-ca
+    kind: ClusterIssuer
+  commonName: unifi.localdomain
+  dnsNames:
+    - unifi.localdomain
+    - "*.unifi.localdomain"

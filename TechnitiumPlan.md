@@ -41,13 +41,20 @@ Questo fa fallire l'avvio del pod Homepage.
 
 ---
 
-### STEP 2: Configurare UDM Pro DHCP (PENDING)
-**File**: `scripts/updateUDMDHCP.sh` (NUOVO)
+### STEP 2: Configurare UDM Pro DHCP (PENDING - USER ACTION REQUIRED)
+**File**: `docs/udm-pro-dns-setup.md` (NUOVO)
 
 **Piano**:
-- Configurare il router UDM Pro per distribuire Technitium come DNS via DHCP
-- IP Technitium: `192.168.9.53`
-- Scripts da eseguire una volta sul router
+- Documentare tutte le azioni manuali sul router UDM Pro
+- Metodo A: UniFi Controller GUI (consigliato)
+- Metodo B: SSH sul router (avanzato)
+- Configurazione wildcard DNS in Technitium (dopo che il pod è operativo)
+- Verifica risoluzione DNS da client
+
+**Azioni utente**:
+1. Riservare IP 192.168.9.53 nel DHCP
+2. Impostare DNS 1 = 192.168.9.53 su UniFi Controller
+3. Dopo Technitium operativo: configurare wildcard DNS in Technitium Web UI
 
 ---
 

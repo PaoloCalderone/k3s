@@ -1,0 +1,75 @@
+---
+# Homepage v2 — init-scripts ConfigMap
+# Contiene lo script Node.js per iniettare la Grafana API key
+# nel services.yaml all'avvio del pod.
+#
+# NOTA: Questo ConfigMap deve essere referenziato nel deployment
+# dell'initContainer per funzionare correttamente.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-init-scripts
+  namespace: flux-system
+data:
+  inject-apikey.js: |
+    const fs = require('fs');
+    const SERVICES_YAML_PATH = '/app/config/services.yaml';
+    const API_KEY = process.env.GRAFANA_API_KEY;
+
+    if (!API_KEY) {
+      console.error('ERROR: GRAFANA_API_KEY is not set');
+      process.exit(1);
+    }
+
+    try {
+      let content = fs.readFileSync(SERVICES_YAML_PATH, 'utf8');
+
+      // Idempotent: skip if apiKey already present
+      if (content.includes('apiKey:')) {
+        console.log('Grafana API key already present, skipping injection');
+        process.exit(0);
+      }
+
+      // Find the Grafana widget section by looking for "type: grafana"
+      // Then inject apiKey right after the url: line that follows it
+      const lines = content.split('\n');
+      const result = [];
+      let foundGrafanaType = false;
+      let foundWidgetUrl = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        result.push(lines[i]);
+
+        // Detect the "type: grafana" line inside the widget section
+        if (lines[i].includes('type: "grafana"')) {
+          foundGrafanaType = true;
+          continue;
+        }
+
+        // After finding "type: grafana", look for the next "url:" line
+        if (foundGrafanaType && !foundWidgetUrl && lines[i].includes('url:')) {
+          const match = lines[i].match(/^(\s*)/);
+          const indent = match ? match[1] : '              ';
+          result.push(indent + 'apiKey: "' + API_KEY + '"');
+          foundWidgetUrl = true;
+          console.log('✅ Grafana API key injected after widget url line');
+        }
+
+        // Reset if we hit a new service group (line starting with "- " at lower indent)
+        if (foundGrafanaType && lines[i].trim().startsWith('- ') && !lines[i].includes('type:')) {
+          foundGrafanaType = false;
+        }
+      }
+
+      if (!foundWidgetUrl) {
+        console.error('ERROR: Could not find Grafana widget section');
+        process.exit(1);
+      }
+
+      fs.writeFileSync(SERVICES_YAML_PATH, result.join('\n'));
+      console.log('✅ services.yaml updated successfully');
+    } catch (error) {
+      console.error('ERROR: ' + error.message);
+      process.exit(1);
+    }

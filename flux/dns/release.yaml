@@ -1,0 +1,159 @@
+---
+# Technitium DNS — Server DNS locale per il homelab
+# Esposto via MetalLB su IP di rete per risoluzione DNS globale
+#
+# Questo DNS sostituisce il DNS del router UDM Pro per i servizi interni.
+# Tutti i client sulla rete 192.168.9.0/24 possono usarlo come DNS server.
+#
+# Configurazione DHCP sul router:
+#   DNS Server: 192.168.9.53 (IP MetalLB di Technitium)
+#
+# Wildcard DNS configurata nel container:
+#   *.unifi.localdomain → 192.168.9.200 (MetalLB di Traefik)
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dns
+  labels:
+    app: technitium-dns
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: technitium-dns
+  namespace: dns
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: technitium-dns
+  namespace: dns
+  labels:
+    app: technitium-dns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: technitium-dns
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: technitium-dns
+    spec:
+      # hostNetwork: true per esporre direttamente la porta 53 UDP/TCP
+      hostNetwork: true
+      dnsPolicy: ClusterFirst
+      serviceAccountName: technitium-dns
+      containers:
+        - name: technitium-dns
+          image: technitium/dns:latest
+          imagePullPolicy: Always
+          ports:
+            - name: dns-tcp
+              containerPort: 53
+              protocol: TCP
+            - name: dns-udp
+              containerPort: 53
+              protocol: UDP
+            - name: web
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: PANEL_PORT_NUMBER
+              value: "80"
+            - name: DNS_PORT_NUMBER
+              value: "53"
+            - name: ALLOW_PANEL_ACCESS_FROM_LAN
+              value: "true"
+            - name: BLOCK_QUERY_LOGGING
+              value: "false"
+            - name: ENABLE_RECURSION
+              value: "true"
+            - name: PRIMARYDNS
+              value: "8.8.8.8"
+            - name: SECONDDNS
+              value: "1.1.1.1"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/dns
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # Non serve privileged se hostNetwork non esplode i conflitti
+          # ma Technitium deve bindare a 0.0.0.0:53 → potrebbe servire
+          securityContext:
+            capabilities:
+              add: ["NET_BIND_SERVICE"]
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: technitium-dns-config
+
+---
+# PVC per configurazione persistente di Technitium
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: technitium-dns-config
+  namespace: dns
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path
+
+---
+# Service ClusterIP per la Web UI di Technitium
+# Non esposto alla rete (solo ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: technitium-web
+  namespace: dns
+  labels:
+    app: technitium-dns
+spec:
+  selector:
+    app: technitium-dns
+  ports:
+    - name: web
+      port: 80
+      targetPort: 80
+      protocol: TCP
+  type: ClusterIP
+
+---
+# Service LoadBalancer per il DNS (UDP/TCP 53)
+# Esposto su MetalLB IP per essere usato come DNS server dalla rete
+apiVersion: v1
+kind: Service
+metadata:
+  name: technitium-dns
+  namespace: dns
+  labels:
+    app: technitium-dns
+spec:
+  selector:
+    app: technitium-dns
+  ports:
+    - name: dns-tcp
+      port: 53
+      targetPort: 53
+      protocol: TCP
+    - name: dns-udp
+      port: 53
+      targetPort: 53
+      protocol: UDP
+  type: LoadBalancer
+  loadBalancerIP: 192.168.9.53

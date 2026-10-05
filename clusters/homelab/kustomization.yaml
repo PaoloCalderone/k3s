@@ -8,3 +8,4 @@ resources:
   - https.yaml
   - dashboard.yaml
   - node-stats.yaml
+  - dns.yaml

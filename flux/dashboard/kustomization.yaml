@@ -8,5 +8,6 @@ resources:
   - release.yaml
   - homepage-config.yaml
   - services-configmap.yaml
+  - init-scripts-configmap.yaml
   - ingressroute.yaml
   - test-service.yaml

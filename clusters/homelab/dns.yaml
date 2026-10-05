@@ -1,0 +1,13 @@
+# DNS — deploys Technitium DNS server for local name resolution
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: dns
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/dns
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m

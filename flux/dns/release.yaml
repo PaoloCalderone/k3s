@@ -45,8 +45,8 @@ spec:
       labels:
         app: technitium-dns
     spec:
-      # hostNetwork: true per esporre direttamente la porta 53 UDP/TCP
-      hostNetwork: true
+      # Non usare hostNetwork per evitare conflitti con CoreDNS
+      # Technitium sarà esposto via LoadBalancer su 192.168.9.53:53
       dnsPolicy: ClusterFirst
       serviceAccountName: technitium-dns
       containers:

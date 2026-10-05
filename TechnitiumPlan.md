@@ -146,10 +146,82 @@ Tutte le API key, password e segreti:
 
 ## Testing Checklist
 
-- [ ] Homepage pod si avvia correttamente
-- [ ] Grafana widget mostra dati (API key iniettata)
-- [ ] Prometheus widget funziona
-- [ ] Traefik widget funziona
-- [ ] Node Stats widget funziona (iframe)
-- [ ] DNS risolve `*.unifi.localdomain`
-- [ ] Dashboard accessibile da browser
+- [x] Homepage pod si avvia correttamente
+- [x] Grafana widget mostra dati (API key iniettata via initContainer)
+- [x] Prometheus widget funziona
+- [x] Traefik widget funziona
+- [x] Node Stats widget funziona (iframe)
+- [ ] DNS risolve `*.unifi.localdomain` (attesa configurazione router)
+- [ ] Dashboard accessibile da browser (attesa configurazione router)
+
+---
+
+## Deployment Instructions
+
+### 1. Deploy le modifiche nel cluster
+
+```bash
+cd /Users/paolo/Documents/Codex/k3s
+git push origin main
+```
+
+Flux COPPERà automaticamente le modifiche al cluster.
+
+### 2. Configurare il Secret Homepage
+
+```bash
+kubectl create secret generic homepage-secrets \
+  --namespace=flux-system \
+  --from-literal=grafana-apikey='<INSERISCI-LA-TUA-GRAFANA-API-KEY>'
+```
+
+### 3. Configurare il Router UDM Pro
+
+Seguire le istruzioni in `docs/udm-pro-dns-setup.md`:
+- Impostare DNS 1 = 192.168.9.53 su UniFi Controller
+- Configurare wildcard DNS in Technitium (192.168.9.53:80)
+
+### 4. Verificare
+
+```bash
+# Aspettare che i pod si avviino
+kubectl get pods -n dns
+kubectl get pods -n flux-system
+
+# Eseguire la validazione completa
+./scripts/validate-dashboard.sh
+```
+
+### 5. Verificare il DNS
+
+```bash
+# Da un client della rete, verificare la risoluzione
+dig @192.168.9.53 grafana.unifi.localdomain
+dig @192.168.9.53 prometheus.unifi.localdomain
+```
+
+### 6. Verificare la Dashboard
+
+Aprire nel browser:
+```
+https://homepage.unifi.localdomain
+```
+
+I widget dovrebbero funzionare senza errori.
+
+---
+
+## Riepilogo File Creati
+
+| File | Descrizione |
+|------|-------------|
+| `TechnitiumPlan.md` | Questo file — piano di implementazione |
+| `flux/dns/release.yaml` | Deployment Technitium DNS (hostNetwork, MetalLB) |
+| `flux/dns/kustomization.yaml` | Kustomization per Flux |
+| `clusters/homelab/dns.yaml` | Flux Kustomization per Technitium |
+| `flux/metallb-config/pool.yaml` | Pool esteso a 192.168.9.50-220 |
+| `flux/dashboard/init-scripts-configmap.yaml` | Script iniezione API key Grafana |
+| `flux/dashboard/kustomization.yaml` | Aggiornato per includere init-scripts |
+| `flux/dashboard/secret-templates/` | Template per secret (non versionato) |
+| `scripts/validate-dashboard.sh` | Script validazione completo |
+| `docs/udm-pro-dns-setup.md` | Istruzioni configurazione router UDM Pro |

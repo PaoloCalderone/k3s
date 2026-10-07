@@ -1,193 +1,193 @@
-# Istruzioni configurazione UDM Pro — Technitium DNS
+# UDM Pro Configuration Instructions — Technitium DNS
 
-## Riepilogo
+## Summary
 
-Tecinitium DNS sarà esposto su IP MetalLB: **192.168.9.53**
+Technitium DNS will be exposed on MetalLB IP: **192.168.9.53**
 
-Devi configurare il router UDM Pro per:
-1. Risolvere i nomi `*.unifi.localdomain` puntando a Traefik
-2. Distribuire Technitium come DNS server a tutti i client via DHCP
+You need to configure the UDM Pro router to:
+1. Resolve `*.unifi.localdomain` names pointing to Traefik
+2. Distribute Technitium as DNS server to all clients via DHCP
 
 ---
 
-## Fase 1: Riservare l'IP Technitium nel DHCP
+## Phase 1: Reserve the Technitium IP in DHCP
 
-### Obiettivo
-Assicurare che 192.168.9.53 non venga assegnato a un dispositivo fisico.
+### Objective
+Ensure 192.168.9.53 is not assigned to a physical device.
 
-### Azione sul router
-1. Accedi al **UniFi Network Controller** (https://<udm-ip>:8443)
-2. Vai su **Settings** → **Networks**
-3. Seleziona la rete **UDM-Pro LAN** (o la rete dei dispositivi)
-4. Scorri fino a **LAN** settings
-5. Verifica che il **DHCP Range** non includa 192.168.9.53
-   - Esempio: se il range è `192.168.9.100-192.168.9.200`, 53 è già fuori range ✅
-   - Se il range include .53, restringilo (es. `192.168.9.54-192.168.9.200`)
+### Router Action
+1. Access the **UniFi Network Controller** (https://<udm-ip>:8443)
+2. Go to **Settings** → **Networks**
+3. Select the **UDM-Pro LAN** network (or the device network)
+4. Scroll down to **LAN** settings
+5. Verify that the **DHCP Range** does not include 192.168.9.53
+   - Example: if the range is `192.168.9.100-192.168.9.200`, 53 is already out of range ✅
+   - If the range includes .53, narrow it (e.g., `192.168.9.54-192.168.9.200`)
 
-### Alternativa: Static DHCP reservation (opzionale)
-Se vuoi essere sicuro che .53 non sia usato:
+### Alternative: Static DHCP reservation (optional)
+If you want to be sure .53 is not used:
 1. Settings → Network → LAN
 2. **Static DHCP** → Add
-3. Assegna 192.168.9.53 a un MAC fittizio (non usato da nessun dispositivo)
-4. Questo blocca l'IP senza assegnarlo a un device reale
+3. Assign 192.168.9.53 to a fake MAC (not used by any device)
+4. This blocks the IP without assigning it to a real device
 
 ---
 
-## Fase 2: Configurare DNS server per i client (DHCP Option 6)
+## Phase 2: Configure DNS Server for Clients (DHCP Option 6)
 
-### Obiettivo
-Far sì che tutti i dispositivi della rete ricevano Technitium (192.168.9.53) come DNS server.
+### Objective
+Make all devices on the network receive Technitium (192.168.9.53) as their DNS server.
 
-### Metodo A — UniFi Controller (GUI)
+### Method A — UniFi Controller (GUI)
 
-1. Accedi al **UniFi Network Controller**
-2. **Settings** → **Networks** → Seleziona la tua LAN
-3. Scorri alla sezione **LAN**
-4. Trova il campo **DNS Server 1** (o **DNS 1**)
-5. Inserisci: `192.168.9.53`
-6. (Opzionale) **DNS Server 2**: lascia vuoto o metti `8.8.8.8`
-7. Clicca **Save**
-8. Riavvia i client (o fai un `dhclient -r && dhclient` per refresh DHCP)
+1. Access the **UniFi Network Controller**
+2. **Settings** → **Networks** → Select your LAN
+3. Scroll to the **LAN** section
+4. Find the **DNS Server 1** (or **DNS 1**) field
+5. Enter: `192.168.9.53`
+6. (Optional) **DNS Server 2**: leave empty or enter `8.8.8.8`
+7. Click **Save**
+8. Reboot clients (or run `dhclient -r && dhclient` to refresh DHCP)
 
-### Metodo B — Via SSH sul router (avanzato)
+### Method B — Via SSH on the router (advanced)
 
-Se la GUI non permette di modificare il DNS:
+If the GUI does not allow DNS modification:
 
-1. SSH sul router:
+1. SSH to the router:
    ```bash
    ssh ubnt@<udm-pro-ip>
-   # Password: quella di acceso al router
+   # Password: your router login password
    ```
 
-2. Entra in ungressh:
+2. Enter ubnt shell:
    ```bash
    sudo enter_ubnt
    ```
 
-3. Modifica la configurazione DHCP:
+3. Modify the DHCP configuration:
    ```bash
    #BACKUP
    cp /etc/udm-pro/dnsmasq.d/01-home.conf /etc/udm-pro/dnsmasq.d/01-home.conf.bak
    
-   # MODIFICA
+   # MODIFY
    vi /etc/udm-pro/dnsmasq.d/01-home.conf
    ```
 
-4. Aggiungi queste righe al file:
+4. Add these lines to the file:
    ```
-   # DNS server per la rete locale
+   # DNS server for the local network
    dhcp-option=6,192.168.9.53
    ```
 
-5. Riavvia dnsmasq:
+5. Restart dnsmasq:
    ```bash
    /etc/init.d/S50dnsmasq restart
    ```
 
-6. Verifica:
+6. Verify:
    ```bash
    grep -r "dhcp-option=6" /etc/udm-pro/dnsmasq.d/
    ```
 
 ---
 
-## Fase 3: Configurare DNS personalizzato su UDM Pro (opzionale)
+## Phase 3: Configure Custom DNS on UDM Pro (optional)
 
-Tecinitium deve risolvere `*.unifi.localdomain`. Questo si fa in due modi:
+Technitium must resolve `*.unifi.localdomain`. This can be done in two ways:
 
-### Metodo A — Configura Technitium per risolvere wildcard
+### Method A — Configure Technitium to resolve wildcard
 
-Accedi alla **Web UI di Technitium** (quando il pod è avviato):
+Access the **Technitium Web UI** (once the pod is running):
 ```
 http://192.168.9.53:80
 ```
 
-1. Login (utente: `admin`, password: quella che imposti tu)
-2. Vai su **Tools** → **DNS Console**
-3. Nella sezione **Zone Management**, clicca **Add New Zone**
-4. Nome Zona: `unifi.localdomain`
-5. Tipo: **Primary**
-6. Nel DNS editor, aggiungi un record:
+1. Login (user: `admin`, password: the one you set)
+2. Go to **Tools** → **DNS Console**
+3. In the **Zone Management** section, click **Add New Zone**
+4. Zone Name: `unifi.localdomain`
+5. Type: **Primary**
+6. In the DNS editor, add a record:
    - Type: `A`
-   - Name: `@` (o `*` per wildcard)
-   - IP: `192.168.9.200` (IP MetalLB di Traefik)
+   - Name: `@` (or `*` for wildcard)
+   - IP: `192.168.9.200` (MetalLB IP of Traefik)
    - TTL: `300`
 
-### Metodo B — Configurare DNS sul router
+### Method B — Configure DNS on the router
 
-Se il router supporta DNS personalizzato:
+If the router supports custom DNS:
 
-1. SSH sul router (come sopra)
-2. Aggiungi un record DNS nel dnsmasq:
+1. SSH to the router (as above)
+2. Add a DNS record in dnsmasq:
    ```bash
    echo "address=/unifi.localdomain/192.168.9.200" >> /etc/udm-pro/dnsmasq.d/01-home.conf
    /etc/init.d/S50dnsmasq restart
    ```
 
-**Nota**: Il Metodo A (Technitium) è preferito perché è centralizzato nel cluster.
+**Note**: Method A (Technitium) is preferred because it is centralized in the cluster.
 
 ---
 
-## Fase 4: Verifica
+## Phase 4: Verification
 
-Dopo aver configurato il router, verifica da un client (laptop/telefono):
+After configuring the router, verify from a client (laptop/phone):
 
-### Su Linux/Mac
+### On Linux/Mac
 ```bash
-# Verifica che il DNS sia Technitium
+# Verify DNS is Technitium
 nmcli dev show | grep DNS
-# Dovresti vedere: DNS [1]: 192.168.9.53
+# You should see: DNS [1]: 192.168.9.53
 
-# Verifica la risoluzione DNS
+# Verify DNS resolution
 dig @192.168.9.53 grafana.unifi.localdomain
 dig @192.168.9.53 prometheus.unifi.localdomain
 dig @192.168.9.53 homepage.unifi.localdomain
 ```
 
-### Su Windows
+### On Windows
 ```powershell
-# Verifica DNS
+# Verify DNS
 ipconfig /all | findstr "DNS"
 
-# Verifica risoluzione
+# Verify resolution
 nslookup grafana.unifi.localdomain 192.168.9.53
 ```
 
-### Su Android/iOS
-- Controlla le impostazioni WiFi → dettagli rete → DNS server
-- Dovrebbe apparire 192.168.9.53
+### On Android/iOS
+- Check WiFi settings → network details → DNS server
+- It should show 192.168.9.53
 
 ---
 
-## Riassunto rapida
+## Quick Summary
 
-| Step | Azione | Dove |
-|------|--------|------|
-| 1 | Verificare che .53 sia fuori DHCP range | UniFi Controller |
-| 2 | Impostare DNS 1 = 192.168.9.53 | UniFi Controller (GUI) o SSH (advanced) |
-| 3 | Configurare wildcard DNS in Technitium | Dopo che Technitium è operativo |
-| 4 | Verificare la risoluzione | Da un client della rete |
+| Step | Action | Where |
+|------|--------|-------|
+| 1 | Verify .53 is outside DHCP range | UniFi Controller |
+| 2 | Set DNS 1 = 192.168.9.53 | UniFi Controller (GUI) or SSH (advanced) |
+| 3 | Configure wildcard DNS in Technitium | After Technitium is operational |
+| 4 | Verify resolution | From a network client |
 
 ---
 
 ## Troubleshooting
 
-### I client non ricevono il nuovo DNS
-- Su Android/iOS: Disconnetti e riconnetti al WiFi
-- Su Windows: `ipconfig /release && ipconfig /renew`
-- Su Mac: Disconnetti WiFi → riconnetti
+### Clients do not receive the new DNS
+- On Android/iOS: Disconnect and reconnect to WiFi
+- On Windows: `ipconfig /release && ipconfig /renew`
+- On Mac: Disconnect WiFi → reconnect
 
-### Technitium non risponde
-- Verifica che il pod sia Running:
+### Technitium does not respond
+- Verify the pod is Running:
   ```bash
   kubectl get pods -n dns
   kubectl get svc -n dns
   ```
-- Verifica che l'IP sia assegnato:
+- Verify the IP is assigned:
   ```bash
   kubectl get svc/technitium-dns -n dns -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
   ```
 
-### DNS funziona ma non risolve unifi.localdomain
-- Controlla la zona in Technitium Web UI
-- Assicurati che il record wildcard punti a 192.168.9.200 (Traefik)
+### DNS works but does not resolve unifi.localdomain
+- Check the zone in Technitium Web UI
+- Ensure the wildcard record points to 192.168.9.200 (Traefik)

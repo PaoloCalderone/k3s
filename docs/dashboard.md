@@ -1,29 +1,29 @@
-# Homepage Dashboard — Guida all'uso
+# Homepage Dashboard — User Guide
 
-Dashboard Homepage esposta su `dashboard.unifi.localdomain` scopre automaticamente tutti i servizi del cluster k3s esposti tramite Traefik.
+The Homepage dashboard exposed on `dashboard.unifi.localdomain` automatically discovers all k3s cluster services exposed via Traefik.
 
-## ⚡ Come funziona
+## ⚡ How It Works
 
-Homepage legge le annotations `gethomepage.dev/` dalle tue Traefik IngressRoute e crea automaticamente una card per ogni servizio. Quando crei un nuovo servizio, basta aggiungere le annotations e far push sul Git repo — Flux aggiorna Homepage, e la nuova card appare senza riavvii.
+Homepage reads the `gethomepage.dev/` annotations from your Traefik IngressRoutes and automatically creates a card for each service. When you create a new service, just add the annotations and push to the Git repo — Flux updates Homepage and the new card appears without restarts.
 
 ---
 
-## 📋 Per aggiungere un nuovo servizio
+## 📋 How to Add a New Service
 
-### 1. Crea o aggiorna l'IngressRoute con le annotations
+### 1. Create or update the IngressRoute with annotations
 
 ```yaml
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: casa-assistent
-  namespace: flux-system          # o il namespace del tuo servizio
+  name: home-assistant
+  namespace: flux-system          # or the namespace of your service
   annotations:
     gethomepage.dev/enabled: "true"
-    gethomepage.dev/name: "Casa Assistent"
-    gethomepage.dev/description: "Domotica e automazioni"
-    gethomepage.dev/group: "Infrastruttura"
+    gethomepage.dev/name: "Home Assistant"
+    gethomepage.dev/description: "Home automation"
+    gethomepage.dev/group: "Infrastructure"
     gethomepage.dev/icon: "home-assistant"
     gethomepage.dev/widget.type: "home-assistant"
 spec:
@@ -32,71 +32,71 @@ spec:
   tls:
     secretName: unifi-localdomain-tls
   routes:
-    - match: Host(`casa.unifi.localdomain`)
+    - match: Host(`homeassistant.unifi.localdomain`)
       kind: Rule
       services:
-        - name: casa-assistent-service
+        - name: home-assistant-service
           port: 8123
 ```
 
-### 2. Annotations obbligatorie
+### 2. Required annotations
 
-| Annotation | Obbligatorio? | Descrizione |
-|------------|---------------|-------------|
-| `gethomepage.dev/enabled` | **SÌ** | `"true"` per abilitare la scoperta automatica |
+| Annotation | Required? | Description |
+|------------|-----------|-------------|
+| `gethomepage.dev/enabled` | **YES** | `"true"` to enable auto-discovery |
 
-### 3. Annotations consigliate
+### 3. Recommended annotations
 
-| Annotation | Descrizione |
+| Annotation | Description |
 |------------|-------------|
-| `gethomepage.dev/name` | Nome visualizzato sulla card |
-| `gethomepage.dev/description` | Sottotitolo sotto il nome |
-| `gethomepage.dev/group` | Categoria in cui raggruppare il servizio |
-| `gethomepage.dev/icon` | Icona da Font Awesome / Heroicons / Material Symbols |
+| `gethomepage.dev/name` | Display name on the card |
+| `gethomepage.dev/description` | Subtitle under the name |
+| `gethomepage.dev/group` | Category to group the service |
+| `gethomepage.dev/icon` | Icon from Font Awesome / Heroicons / Material Symbols |
 
-### 4. Widgets live (opzionali)
+### 4. Live widgets (optional)
 
-Alcuni servizi mostrano dati live invece dell'immagine statica:
+Some services show live data instead of a static image:
 
-| Widget | Descrizione |
+| Widget | Description |
 |--------|-------------|
-| `grafana` | Snapshot dashboard Grafana |
-| `prometheus` | Metriche e allarmi Prometheus |
-| `alertmanager` | Stato allarmi Alertmanager |
-| `home-assistant` | Dispositivi Casa Assistent |
-| `docker` | Container in esecuzione |
-| `kubernetes` | Stato del cluster k3s |
+| `grafana` | Grafana dashboard snapshot |
+| `prometheus` | Prometheus metrics and alarms |
+| `alertmanager` | Alertmanager alarm status |
+| `home-assistant` | Home Assistant devices |
+| `docker` | Running containers |
+| `kubernetes` | K3s cluster status |
 
-### 5. Icone disponibili
+### 5. Available icons
 
-Homepage supporta icone da **Font Awesome 6**, **Heroicons**, **Lucide** e **Material Symbols**.
+Homepage supports icons from **Font Awesome 6**, **Heroicons**, **Lucide** and **Material Symbols**.
 
-Esempi:
+Examples:
 ```
 grafana, prometheus, alert, docker, kubernetes, nginx,
 home-assistant, sonarr, radarr, overseerr, plex, qbittorrent,
 linux, cloud, database, server, shield, code
 ```
 
-Lista completa: <https://gethomepage.dev/latest/config-items/icons>
+Full list: <https://gethomepage.dev/latest/config-items/icons>
 
 ---
 
-## 📦 Esempi pratici
+## 📦 Practical Examples
 
-### Esempio 1 — Casa Assistent
+### Example 1 — Home Assistant
 
 ```yaml
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: casa-assistent
+  name: home-assistant
   namespace: flux-system
   annotations:
     gethomepage.dev/enabled: "true"
-    gethomepage.dev/name: "Casa Assistent"
-    gethomepage.dev/description: "Domotica e automazioni"
-    gethomepage.dev/group: "Infrastruttura"
+    gethomepage.dev/name: "Home Assistant"
+    gethomepage.dev/description: "Home automation"
+    gethomepage.dev/group: "Infrastructure"
     gethomepage.dev/icon: "home-assistant"
     gethomepage.dev/widget.type: "home-assistant"
 spec:
@@ -105,14 +105,14 @@ spec:
   tls:
     secretName: unifi-localdomain-tls
   routes:
-    - match: Host(`casa.unifi.localdomain`)
+    - match: Host(`homeassistant.unifi.localdomain`)
       kind: Rule
       services:
-        - name: casa-assistent
+        - name: home-assistant
           port: 8123
 ```
 
-### Esempio 2 — Navidrome (musica)
+### Example 2 — Navidrome (music)
 
 ```yaml
 apiVersion: traefik.io/v1alpha1
@@ -123,8 +123,8 @@ metadata:
   annotations:
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Navidrome"
-    gethomepage.dev/description: "Server musica"
-    gethomepage.dev/group: "Infrastruttura"
+    gethomepage.dev/description: "Music server"
+    gethomepage.dev/group: "Infrastructure"
     gethomepage.dev/icon: "music"
     gethomepage.dev/widget.type: "navidrome"
 spec:
@@ -140,7 +140,7 @@ spec:
           port: 4533
 ```
 
-### Esempio 3 — Storage NFS
+### Example 3 — NFS Storage
 
 ```yaml
 apiVersion: traefik.io/v1alpha1
@@ -151,7 +151,7 @@ metadata:
   annotations:
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "NFS Storage"
-    gethomepage.dev/description: "Archiviazione rete"
+    gethomepage.dev/description: "Network storage"
     gethomepage.dev/group: "Storage"
     gethomepage.dev/icon: "database"
 spec:
@@ -169,16 +169,16 @@ spec:
 
 ---
 
-## ⚠️ Cosa NON fare
+## ⚠️ What NOT to do
 
-- **Non annotare la rotta di Homepage stessa** con `gethomepage.dev/enabled: "true"`. Homepage riconosce `dashboard.unifi.localdomain` come il dashboard stesso e lo nasconde dalle card. Se lo annoti, la dashboard mostrerà sé stessa come una delle sue stesse card.
+- **Do not annotate the Homepage route itself** with `gethomepage.dev/enabled: "true"`. Homepage recognizes `dashboard.unifi.localdomain` as the dashboard itself and hides it from cards. If you annotate it, the dashboard will show itself as one of its own cards.
 
   ```yaml
-  # ✅ CORRETTO — pagina vuota per la propria rotta
+  # ✅ CORRECT — empty page for its own route
   name: homepage
   namespace: flux-system
 
-  # ❌ SBAGLIATO — mostra sé stessa come card
+  # ❌ WRONG — shows itself as a card
   name: homepage
   annotations:
     gethomepage.dev/enabled: "true"
@@ -186,91 +186,91 @@ spec:
 
 ---
 
-## 🔧 Servizi già configurati
+## 🔧 Already Configured Services
 
-Attualmente scoperti automaticamente tramite le annotations sulle IngressRoute esistenti:
+Currently auto-discovered via annotations on existing IngressRoutes:
 
-| Servizio | URL | Gruppo | Icona | Widget |
-|----------|-----|--------|-------|--------|
+| Service | URL | Group | Icon | Widget |
+|---------|-----|-------|------|--------|
 | Grafana | `grafana.unifi.localdomain` | Monitoring | `grafana` | ✅ Grafana |
 | Prometheus | `prometheus.unifi.localdomain` | Monitoring | `prometheus` | ✅ Prometheus |
 | Alertmanager | `alertmanager.unifi.localdomain` | Monitoring | `alert` | ✅ Alertmanager |
 
-## 🧪 Servizio di test
+## 🧪 Test Service
 
-È stato creato un servizio di test per verificare il funzionamento:
+A test service has been created to verify functionality:
 
-| Servizio | URL | Gruppo | Icona |
-|----------|-----|--------|-------|
-| **Test** | `test.unifi.localdomain` | Infrastruttura | `flask` |
+| Service | URL | Group | Icon |
+|---------|-----|-------|------|
+| **Test** | `test.unifi.localdomain` | Infrastructure | `flask` |
 
-Il servizio di test è un nginx con una pagina HTML custom che conferma che la scoperta automatica di Homepage funziona correttamente. Quando accedi a `https://dashboard.unifi.localdomain`, dovresti vedere una card "Test" nel gruppo "Infrastruttura" che punta a `test.unifi.localdomain`.
+The test service is an nginx with a custom HTML page that confirms Homepage auto-discovery is working correctly. When you access `https://dashboard.unifi.localdomain`, you should see a "Test" card in the "Infrastructure" group pointing to `test.unifi.localdomain`.
 
 ---
 
-## 🧪 Testare la configurazione
+## 🧪 Testing the Configuration
 
-### Passo 1 — Verifica deployment
+### Step 1 — Verify Deployment
 
 ```bash
-# Controlla che il pod Homepage sia in Running
+# Check that the Homepage pod is Running
 kubectl get pods -n default -l app.kubernetes.io/name=homepage
 
-# Controlla le risorse Traefik scoperte
+# Check Traefik resources discovered
 kubectl get ingressroutes -A | grep -A3 gethomepage
 ```
 
-### Passo 2 — Testa il servizio di test
+### Step 2 — Test the Test Service
 
 ```bash
-# Verifica che il test-service sia deployato
+# Verify the test-service is deployed
 kubectl get pods -n test
 
-# Accedi al servizio di test direttamente
+# Access the test service directly
 curl -k https://test.unifi.localdomain 2>/dev/null | head -20
 
-# Verifica che la card "Test" appaia sulla dashboard
-# Apri https://dashboard.unifi.localdomain
+# Verify the "Test" card appears on the dashboard
+# Open https://dashboard.unifi.localdomain
 ```
 
-### Passo 3 — Verifica la scoperta automatica
+### Step 3 — Verify Auto-Discovery
 
 ```bash
-# Tutte le IngressRoute con annotations Homepage
+# All IngressRoutes with Homepage annotations
 kubectl get ingressroutes -A -o yaml | grep -B2 -A10 "gethomepage.dev"
 
-# Controlla i log di Homepage per errori di scoperta
+# Check Homepage logs for discovery errors
 kubectl logs -n default -l app.kubernetes.io/name=homepage --tail=100
 ```
 
-### Passo 4 — Rimuovi il servizio di test (opzionale)
+### Step 4 — Remove the Test Service (optional)
 
-Quando vuoi togliere il servizio di test dalla dashboard:
+When you want to remove the test service from the dashboard:
 
 ```bash
-# Rimuovi il test-service dal kustomization
+# Remove the test-service from the kustomization
 cd /path/to/k3s
-# Edita flux/dashboard/kustomization.yaml e commenta test-service.yaml
-# Fai push sul Git repo
+# Edit flux/dashboard/kustomization.yaml and comment out test-service.yaml
+# Push to the Git repo
 
-# OPPURE rimuovi direttamente:
+# OR remove directly:
 kubectl delete -f flux/dashboard/test-service.yaml
 ```
 
 ---
 
-## 📁 File di riferimento
+## 📁 Reference Files
 
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `flux/dashboard/release.yaml` | HelmRelease per il deployment di Homepage |
-| `flux/dashboard/homepage-config.yaml` | ConfigMap con impostazioni statiche |
-| `flux/dashboard/ingressroute.yaml` | Traefik IngressRoute per dashboard.unifi.localdomain |
-| `flux/dashboard/kustomization.yaml` | Kustomization per Flux |
-| `clusters/homelab/dashboard.yaml` | Flux Kustomization che attiva il deployment |
+| `flux/dashboard/release.yaml` | HelmRelease for Homepage deployment |
+| `flux/dashboard/homepage-config.yaml` | ConfigMap with static settings |
+| `flux/dashboard/ingressroute.yaml` | Traefik IngressRoute for dashboard.unifi.localdomain |
+| `flux/dashboard/kustomization.yaml` | Kustomization for Flux |
+| `clusters/homelab/dashboard.yaml` | Flux Kustomization that triggers deployment |
 
-## 🔗 Risorse utili
+## 🔗 Useful Resources
 
 - Homepage docs: <https://gethomepage.dev>
-- Icone: <https://gethomepage.dev/latest/config-items/icons>
+- Icons: <https://gethomepage.dev/latest/config-items/icons>
 - Widgets: <https://gethomepage.dev/latest/widgets/>

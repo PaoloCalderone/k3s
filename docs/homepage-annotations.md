@@ -1,72 +1,72 @@
-# Homepage — Annotations per Traefik IngressRoute
+# Homepage — Annotations for Traefik IngressRoute
 
-Homepage (gethomepage/homepage) scopre automaticamente i servizi dal cluster k3s
-leggendo le annotations sulle risorse Traefik IngressRoute.
+Homepage (gethomepage/homepage) automatically discovers services from the k3s cluster
+by reading annotations on Traefik IngressRoute resources.
 
-## Come funzionano le annotations
+## How annotations work
 
-Quando crei una nuova IngressRoute per un servizio, aggiungi queste annotations:
+When you create a new IngressRoute for a service, add these annotations:
 
 ```yaml
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: il-mio-servizio
-  namespace: il-namespace
+  name: my-service
+  namespace: my-namespace
   annotations:
     gethomepage.dev/enabled: "true"
-    gethomepage.dev/name: "Nome visualizzato"
-    gethomepage.dev/description: "Cosa fa"
-    gethomepage.dev/group: "Categoria"
-    gethomepage.dev/icon: "nome-icona"
-    gethomepage.dev/widget.type: "tipo-widget"
+    gethomepage.dev/name: "Display Name"
+    gethomepage.dev/description: "What it does"
+    gethomepage.dev/group: "Category"
+    gethomepage.dev/icon: "icon-name"
+    gethomepage.dev/widget.type: "widget-type"
 spec:
-  # ... resto della configurazione Traefik
+  # ... rest of the Traefik configuration
 ```
 
-## Annotations disponibili
+## Available annotations
 
-| Annotation | Obbligatorio? | Esempio |
-|------------|---------------|---------|
+| Annotation | Required? | Example |
+|------------|-----------|---------|
 | `gethomepage.dev/enabled` | ✅ | `"true"` |
-| `gethomepage.dev/name` | ⚠️ | `"Casa Assistent"` |
+| `gethomepage.dev/name` | ⚠️ | `"Home Assistant"` |
 | `gethomepage.dev/description` | ⚠️ | `"Smart home hub"` |
-| `gethomepage.dev/group` | ⚠️ | `"Infrastruttura"` |
+| `gethomepage.dev/group` | ⚠️ | `"Infrastructure"` |
 | `gethomepage.dev/icon` | ⚠️ | `"home-assistant"` |
 | `gethomepage.dev/widget.type` | ❌ | `"home-assistant"` |
 
-## Icone disponibili
+## Available icons
 
-Homepage supporta icone da **Font Awesome 6**, **Heroicons**, **Lucide** e **Material Symbols**.
+Homepage supports icons from **Font Awesome 6**, **Heroicons**, **Lucide** and **Material Symbols**.
 
-Esempi:
+Examples:
 - `grafana`, `prometheus`, `alert`, `home-assistant`
 - `docker`, `kubernetes`, `nginx`
 - `sonarr`, `radarr`, `overseerr`
 
-Lista completa: https://gethomepage.dev/latest/config-items/icons
+Full list: https://gethomepage.dev/latest/config-items/icons
 
-## Widget supportati
+## Supported widgets
 
-| Widget | Descrizione |
+| Widget | Description |
 |--------|-------------|
-| `grafana` | Dashboard grafana con snapshots |
-| `prometheus` | Metriche e query Prometheus |
-| `alertmanager` | Stato allarmi |
-| `home-assistant` | Dispositivi HA |
-| `docker` | Container in esecuzione |
-| `kubernetes` | Stato pod/nodes cluster |
+| `grafana` | Grafana dashboards with snapshots |
+| `prometheus` | Prometheus metrics and queries |
+| `alertmanager` | Alarm status |
+| `home-assistant` | HA devices |
+| `docker` | Running containers |
+| `kubernetes` | Cluster pod/node status |
 
-## Quando NON aggiungere le annotations
+## When NOT to add annotations
 
-- **Dashboard stesso**: Non aggiungere annotations alla rotta di Homepage, altrimenti la dashboard mostra sé stessa come card.
+- **The dashboard itself**: Do not add annotations to the Homepage route, otherwise the dashboard will show itself as a card.
   ```yaml
-  # ⚠️ NON annotare la rotta di Homepage
+  # ⚠️ Do not annotate the Homepage route
   name: homepage
   namespace: flux-system
   ```
 
-## Esempio completo — nuovo servizio
+## Complete example — new service
 
 ```yaml
 ---
@@ -77,9 +77,9 @@ metadata:
   namespace: flux-system
   annotations:
     gethomepage.dev/enabled: "true"
-    gethomepage.dev/name: "Casa Assistent"
-    gethomepage.dev/description: "Automation e IoT"
-    gethomepage.dev/group: "Infrastruttura"
+    gethomepage.dev/name: "Home Assistant"
+    gethomepage.dev/description: "Automation and IoT"
+    gethomepage.dev/group: "Infrastructure"
     gethomepage.dev/icon: "home-assistant"
     gethomepage.dev/widget.type: "home-assistant"
 spec:
@@ -95,9 +95,9 @@ spec:
           port: 8123
 ```
 
-## Pagamento Flux
+## Flux sync
 
-Dopo aver fatto il push sul repo Git, Flux aggiorna automaticamente la configurazione
-e Homepage legge le nuove annotations dalle IngressRoute scoperte.
+After pushing to the Git repo, Flux automatically updates the configuration
+and Homepage reads the new annotations from the discovered IngressRoutes.
 
-Non serve riavviare o riconfigurare Homepage.
+No need to restart or reconfigure Homepage.

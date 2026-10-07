@@ -1,227 +1,133 @@
-# Technitium DNS Migration Plan
+# Technitium DNS — Implementation Completed
 
-## Riepilogo Problemi
+## Summary
 
-1. **DNS su UDM Pro**: Il DNS `*.unifi.localdomain` risiede sul router UDM Pro
-   - Solo i client che usano UDM Pro come DNS risolvono correttamente
-   - I widget Homepage (Grafana, Prometheus, Traefik) non raggiungono le API
+Technitium DNS is now operational in the k3s cluster at **192.168.9.53** and correctly resolves all required domains.
 
-2. **Homepage API errori**: 
-   - Grafana: 401 Unauthorized → API key non iniettata (init-scripts ConfigMap mancante)
-   - Prometheus: Internal server error → URL non raggiungibile dal browser
-   - Widget type "linux" non esiste → sostituito con "iframe"
+## Architecture
 
-3. **Bug critico**: `homepage-init-scripts` ConfigMap referenziata ma NON esiste nel repo
-
----
-
-## Piano di Implementazione
-
-### STEP 0: Fix bug critico — homepage-init-scripts ConfigMap (PENDING)
-**File**: `flux/dashboard/init-scripts-configmap.yaml` (NUOVO)
-
-**Problema**: Il deployment Homepage reference un ConfigMap `homepage-init-scripts` che non esiste.
-Questo fa fallire l'avvio del pod Homepage.
-
-**Soluzione**: Creare un ConfigMap con uno script Node.js che inietta la Grafana API key nel services.yaml
-
----
-
-### STEP 1: Deploy Technitium DNS (PENDING)
-**File**: `flux/dns/` (NUOVA DIRECTORY)
-- `release.yaml` — Deployment + Service (MetalLB)
-- `kustomization.yaml`
-
-**Piano**:
-- Container: `technitium/dns:latest`
-- Service: ClusterIP + LoadBalancer (MetalLB) su `192.168.9.53`
-- Ports: 53/UDP, 53/TCP, 80 (Web UI)
-- Volume: PVC per configurazione persistente
-- Config: Wildcard DNS per `*.unifi.localdomain` → MetalLB IP di Traefik
-
----
-
-### STEP 2: Configurare UDM Pro DHCP (PENDING - USER ACTION REQUIRED)
-**File**: `docs/udm-pro-dns-setup.md` (NUOVO)
-
-**Piano**:
-- Documentare tutte le azioni manuali sul router UDM Pro
-- Metodo A: UniFi Controller GUI (consigliato)
-- Metodo B: SSH sul router (avanzato)
-- Configurazione wildcard DNS in Technitium (dopo che il pod è operativo)
-- Verifica risoluzione DNS da client
-
-**Azioni utente**:
-1. Riservare IP 192.168.9.53 nel DHCP
-2. Impostare DNS 1 = 192.168.9.53 su UniFi Controller
-3. Dopo Technitium operativo: configurare wildcard DNS in Technitium Web UI
-
----
-
-### STEP 3: Fix dashboard services (✅ COMPLETATO)
-**File**: Verificato, nessuna modifica necessaria
-
-**Verifica**:
-- Homepage services.yaml: tutte le URL puntano a endpoint pubblici Traefik ✅
-- Homepage settings.yaml: prometheus URL interno è corretto (widget kubernetes, non browser) ✅
-- Node Stats widget type: impostato su `iframe` ✅
-- Prometheus widget type: impostato su `prometheus` ✅
-- Grafana widget type: impostato su `grafana` (con apiKey) ✅
-
-**Note**:
-- Il Prometheus URL in settings.yaml è CORRETTO (cluster.local) perché è per il widget Kubernetes che legge metriche dal cluster
-- I widget card (Grafana, Prometheus, Traefik) usano servizi.yaml che punta a URL pubblici via Traefik ✅
-
----
-
-### STEP 4: Secret templates e .gitignore (✅ COMPLETATO)
-**File creati**:
-- `flux/dashboard/secret-templates/homepage-secrets.yaml.example`
-- `flux/dashboard/secret-templates/.gitignore`
-
-**Verifica**:
-- `.gitignore` già include `*.env`, `*.pem`, `kubeconfig` ✅
-- Template documenta come creare il secret sul cluster
-- Il secret `homepage-secrets` deve essere creato manualmente con: `kubectl create secret generic homepage-secrets ...`
-
----
-
-### STEP 5: Testing e Validazione (✅ COMPLETATO)
-**File creati**:
-- `scripts/validate-dashboard.sh` — Script di validazione completo
-
-**Funzionalità dello script**:
-- Verifica namespace dns e flux-system
-- Verifica Technitium DNS pod status e IP
-- Verifica Homepage pod status e initContainer logs
-- Verifica Secret homepage-secrets
-- Verifica Services e IngressRoutes
-- Verifica ConfigMaps (homepage-config, homepage-services, homepage-init-scripts)
-- Verifica risoluzione DNS (se Technitium è operativo)
-
-**Uso**:
-```bash
-./scripts/validate-dashboard.sh
+```
+Network clients (192.168.9.x)
+        ↓ DNS
+Technitium DNS (192.168.9.53:53)
+        ├── cluster.local → CoreDNS (10.43.0.10)
+        ├── *.unifi.localdomain → 192.168.9.200 (Traefik)
+        └── External → Google (8.8.8.8) / Cloudflare (1.1.1.1)
 ```
 
----
+## Configured DNS Records
 
-## Log Sessione
+| Domain | Type | Result | Notes |
+|--------|------|--------|-------|
+| `*.cluster.local` | Forwarder → | CoreDNS (10.43.0.10) | Any k3s service |
+| `*.unifi.localdomain` | A | 192.168.9.200 | Wildcard for all Unifi services |
 
-### Sessione Iniziale
-- **Data**: 2025-01-XX
-- **Stato**: STEP 0 ✅ COMPLETATO
-- **File creati**:
-  - `TechnitiumPlan.md` — questo file
-  - `flux/dashboard/init-scripts-configmap.yaml` — ConfigMap con script iniezione
-- **Verifica**: Script Node.js inietta apiKey correttamente nel widget section
-- **Fix**: Eliminato `flux/dashboard/inject-apikey.js` (non necessario, script è nel ConfigMap)
+## Files Created
 
-### STEP 1: Technitium DNS
-- **Data**: In corso
-- **Stato**: FILE CREATI
-- **File creati**:
-  - `flux/dns/release.yaml` — Deployment, PVC, Services (ClusterIP + LoadBalancer)
-  - `flux/dns/kustomization.yaml` — Kustomization per Flux
-  - `clusters/homelab/dns.yaml` — Flux Kustomization
-  - `flux/metallb-config/pool.yaml` — Aggiornato a 192.168.9.50-220
-- **Note**:
-  - Technitium usa hostNetwork per esporre UDP/TCP 53
-  - IP MetalLB dedicato: 192.168.9.53
-  - Web UI: ClusterIP (non esposta alla rete)
-  - DNS Query: forwarding a Google (8.8.8.8) e Cloudflare (1.1.1.1)
-- **Prossimo**: Verificare che il PVC sia funzionante (storageClassName: local-path)
+| File | Description |
+|------|-------------|
+| `flux/dns/release.yaml` | Technitium DNS Deployment (ConfigMap, PVC, Services) |
+| `flux/dns/kustomization.yaml` | Kustomization for Flux |
+| `clusters/homelab/dns.yaml` | Flux Kustomization |
+| `flux/metallb-config/pool.yaml` | MetalLB Pool 192.168.9.50-220 |
 
----
+## Components
 
-## Note di Sicurezza
+### Deployment
+- **Container**: `technitium/dns-server:latest`
+- **Storage**: PVC 1Gi (local-path) → `/opt/technitium/dns/config`
+- **Ports**: 53/TCP, 53/UDP (DNS), 5380 (Web UI)
+- **Config**: mounted from ConfigMap at `/bootstrap`
 
-Tutte le API key, password e segreti:
-- ✅ Devono essere in Kubernetes Secrets (nome: `homepage-secrets`)
-- ✅ NON devono essere nel repository Git
-- ✅ File `.env` devono essere in `.gitignore`
-- ✅ Solo gli utenti finali devono creare il secret sul cluster
+### Bootstrap Script
+Runs on startup:
+1. Wait 45s for Technitium initialization
+2. API login (token with `admin` password)
+3. Create `cluster.local` zone as Forwarder → 10.43.0.10
+4. Create `unifi.localdomain` zone as Primary
+5. Add wildcard record `*.unifi.localdomain` → 192.168.9.200
 
----
+### Persistence
+Zones are stored in the PVC and persist across restarts.
 
-## Testing Checklist
+## Testing
 
-- [x] Homepage pod si avvia correttamente
-- [x] Grafana widget mostra dati (API key iniettata via initContainer)
-- [x] Prometheus widget funziona
-- [x] Traefik widget funziona
-- [x] Node Stats widget funziona (iframe)
-- [ ] DNS risolve `*.unifi.localdomain` (attesa configurazione router)
-- [ ] Dashboard accessibile da browser (attesa configurazione router)
-
----
-
-## Deployment Instructions
-
-### 1. Deploy le modifiche nel cluster
-
-```bash
-cd /Users/paolo/Documents/Codex/k3s
-git push origin main
+### cluster.local (CoreDNS forwarding)
+```
+$ nslookup kubernetes.default.svc.cluster.local 192.168.9.53
+Name: kubernetes.default.svc.cluster.local
+Address: 10.43.0.1 ✅
 ```
 
-Flux COPPERà automaticamente le modifiche al cluster.
-
-### 2. Configurare il Secret Homepage
-
-```bash
-kubectl create secret generic homepage-secrets \
-  --namespace=flux-system \
-  --from-literal=grafana-apikey='<INSERISCI-LA-TUA-GRAFANA-API-KEY>'
+### google.com (external DNS)
+```
+$ nslookup google.com 192.168.9.53
+Non-authoritative answer:
+Name: google.com
+Address: 192.178.194.100 ✅
 ```
 
-### 3. Configurare il Router UDM Pro
-
-Seguire le istruzioni in `docs/udm-pro-dns-setup.md`:
-- Impostare DNS 1 = 192.168.9.53 su UniFi Controller
-- Configurare wildcard DNS in Technitium (192.168.9.53:80)
-
-### 4. Verificare
-
-```bash
-# Aspettare che i pod si avviino
-kubectl get pods -n dns
-kubectl get pods -n flux-system
-
-# Eseguire la validazione completa
-./scripts/validate-dashboard.sh
+### grafana.unifi.localdomain (wildcard)
+```
+$ nslookup grafana.unifi.localdomain 192.168.9.53
+Name: grafana.unifi.localdomain
+Address: 192.168.9.200 ✅
 ```
 
-### 5. Verificare il DNS
+### prometheus.unifi.localdomain (wildcard)
+```
+$ nslookup prometheus.unifi.localdomain 192.168.9.53
+Name: prometheus.unifi.localdomain
+Address: 192.168.9.200 ✅
+```
 
+### homepage.unifi.localdomain (wildcard)
+```
+$ nslookup homepage.unifi.localdomain 192.168.9.53
+Name: homepage.unifi.localdomain
+Address: 192.168.9.200 ✅
+```
+
+## Next Steps (Required Actions)
+
+### 1. Configure DHCP on UDM Pro router
+Access UniFi Controller → Settings → Network → LAN → DHCP
+- Set **DNS Server 1** = `192.168.9.53`
+- Reboot clients to obtain the new DNS
+
+### 2. Web UI (optional)
+Access: `http://<node-ip>:5380`
+- Username: `admin`
+- Password: `admin`
+- Use to add/modify DNS zones via web interface
+
+### 3. End-to-end verification
+After configuring the router:
 ```bash
-# Da un client della rete, verificare la risoluzione
-dig @192.168.9.53 grafana.unifi.localdomain
+# From any network client
+nslookup grafana.unifi.localdomain
+nslookup kubernetes.default.svc.cluster.local
 dig @192.168.9.53 prometheus.unifi.localdomain
 ```
 
-### 6. Verificare la Dashboard
+## Troubleshooting
 
-Aprire nel browser:
-```
-https://homepage.unifi.localdomain
-```
+### DNS does not resolve
+1. Verify Technitium pod: `kubectl get pods -n dns`
+2. Verify zones: `kubectl exec -n dns deployment/technitium-dns -- curl http://localhost:5380/api/zones/list`
+3. Restart: `kubectl rollout restart deployment/technitium-dns -n dns`
 
-I widget dovrebbero funzionare senza errori.
+### PVC does not persist
+- Verify PVC bound: `kubectl get pvc -n dns`
+- Verify node affinity: `kubectl get pvc technitium-dns-config -n dns -o yaml | grep selected-node`
 
----
+## Session Log
 
-## Riepilogo File Creati
-
-| File | Descrizione |
-|------|-------------|
-| `TechnitiumPlan.md` | Questo file — piano di implementazione |
-| `flux/dns/release.yaml` | Deployment Technitium DNS (hostNetwork, MetalLB) |
-| `flux/dns/kustomization.yaml` | Kustomization per Flux |
-| `clusters/homelab/dns.yaml` | Flux Kustomization per Technitium |
-| `flux/metallb-config/pool.yaml` | Pool esteso a 192.168.9.50-220 |
-| `flux/dashboard/init-scripts-configmap.yaml` | Script iniezione API key Grafana |
-| `flux/dashboard/kustomization.yaml` | Aggiornato per includere init-scripts |
-| `flux/dashboard/secret-templates/` | Template per secret (non versionato) |
-| `scripts/validate-dashboard.sh` | Script validazione completo |
-| `docs/udm-pro-dns-setup.md` | Istruzioni configurazione router UDM Pro |
+### Final Session
+- **Date**: 2026-10-05
+- **Status**: ✅ COMPLETED
+- **Modified files**:
+  - `flux/dns/release.yaml` — Complete deployment with bootstrap and persistence
+  - `flux/dns/kustomization.yaml` — Corrected Flux Kustomization
+  - `clusters/homelab/dns.yaml` — Flux Kustomization
+- **Note**: The PVC must be mounted at `/opt/technitium/dns/config` (not `/etc/dns`) to ensure zone persistence

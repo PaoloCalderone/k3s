@@ -1,97 +1,97 @@
 # Changelog — Homepage Dashboard
 
-Data: 2025-09-30
+Date: 2025-09-30
 
-## 🆕 File creati
+## 🆕 Files Created
 
-### `flux/dashboard/` (nuova directory)
+### `flux/dashboard/` (new directory)
 
-| File | Ruolo |
-|------|-------|
-| `kustomization.yaml` | Elenco risorse da deployare |
-| `release.yaml` | Flux HelmRelease → Homepage v0.10.11 (Helm chart `homepage` repo `gethomepage`) |
-| `homepage-config.yaml` | ConfigMap `homepage-config` con settings (theme, widgets, categories) |
+| File | Role |
+|------|------|
+| `kustomization.yaml` | List of resources to deploy |
+| `release.yaml` | Flux HelmRelease → Homepage v0.10.11 (Helm chart `homepage` from repo `gethomepage`) |
+| `homepage-config.yaml` | ConfigMap `homepage-config` with settings (theme, widgets, categories) |
 | `ingressroute.yaml` | Traefik IngressRoute → `dashboard.unifi.localdomain` (TLS) |
-| `test-service.yaml` | Servizio di test: nginx con pagina HTML custom, esposto su `test.unifi.localdomain` |
+| `test-service.yaml` | Test service: nginx with custom HTML page, exposed on `test.unifi.localdomain` |
 
 ### `clusters/homelab/`
 
-| File | Ruolo |
-|------|-------|
-| `dashboard.yaml` | Flux Kustomization che attiva il deployment di `flux/dashboard/` |
+| File | Role |
+|------|------|
+| `dashboard.yaml` | Flux Kustomization that triggers deployment of `flux/dashboard/` |
 
 ### `docs/`
 
-| File | Ruolo |
-|------|-------|
-| `dashboard.md` | Documentazione completa: come aggiungere servizi, esempi pratici, widget, test |
-| `homepage-annotations.md` | Reference annotations `gethomepage.dev/` con esempi |
+| File | Role |
+|------|------|
+| `dashboard.md` | Complete documentation: how to add services, practical examples, widgets, testing |
+| `homepage-annotations.md` | Reference for `gethomepage.dev/` annotations with examples |
 
 ### `scripts/`
 
-| File | Ruolo |
-|------|-------|
-| `validate-dashboard.sh` | Script di validazione che controlla stato pod, servizi, DNS, TLS |
+| File | Role |
+|------|------|
+| `validate-dashboard.sh` | Validation script that checks pod status, services, DNS, TLS |
 
 ---
 
-## 🔧 File modificati
+## 🔧 Files Modified
 
 ### `clusters/homelab/kustomization.yaml`
-- Aggiunta `dashboard.yaml` alla lista dei resources
+- Added `dashboard.yaml` to the resources list
 
 ### `flux/monitoring/ingressroutes.yaml`
-- Aggiunte annotations `gethomepage.dev/` a tutte e 3 le rotte esistenti:
+- Added `gethomepage.dev/` annotations to all 3 existing routes:
   - Grafana → `gethomepage.dev/name: "Grafana"`, group: "Monitoring", icon: "grafana"
   - Prometheus → `gethomepage.dev/name: "Prometheus"`, group: "Monitoring", icon: "prometheus"
   - Alertmanager → `gethomepage.dev/name: "Alertmanager"`, group: "Monitoring", icon: "alert"
 
 ---
 
-## 📊 Risultato atteso
+## 📊 Expected Result
 
-Accedendo a `https://dashboard.unifi.localdomain` si vedrà:
+Accessing `https://dashboard.unifi.localdomain` will show:
 
-### Gruppo: Monitoring
+### Group: Monitoring
 - **Grafana** → grafana.unifi.localdomain (widget: Grafana)
 - **Prometheus** → prometheus.unifi.localdomain (widget: Prometheus)
 - **Alertmanager** → alertmanager.unifi.localdomain (widget: Alertmanager)
 
-### Gruppo: Infrastruttura
-- **Test** → test.unifi.localdomain (servizio di test)
+### Group: Infrastructure
+- **Test** → test.unifi.localdomain (test service)
 
-### Widget cluster
-- Stato nodi k3s (CPU, memoria)
+### Cluster widgets
+- K3s node status (CPU, memory)
 
 ---
 
-## 🚀 Deploy
+## 🚀 Deployment
 
-Dopo aver fatto il push delle modifiche sul repo Git:
+After pushing the changes to the Git repo:
 
 ```bash
-# Flux dovrebbe deployare automaticamente in ~10 minuti
-# Puoi triggerare Flux con:
+# Flux should deploy automatically in ~10 minutes
+# You can trigger Flux with:
 flux reconcile kustomization dashboard -n flux-system
 
-# Oppure attendi l'interval: 10m
+# Or wait for the sync interval: 10m
 ```
 
-## 🧪 Validazione
+## 🧪 Validation
 
 ```bash
-# Script di validazione
+# Validation script
 bash scripts/validate-dashboard.sh
 
-# Verifica manuale
+# Manual verification
 kubectl get pods -n default -l app.kubernetes.io/name=homepage
 kubectl get pods -n test
 curl -k https://dashboard.unifi.localdomain
 ```
 
-## ⚠️ Note
+## ⚠️ Notes
 
-- Homepage legge annotations su **tutte** le IngressRoute del cluster (anche di altri namespace)
-- `test.unifi.localdomain` è inteso solo per testing: puoi rimuoverlo cancellando `flux/dashboard/test-service.yaml`
-- Il servizio Homepage usa RBAC per leggere risorse del cluster automaticamente
-- Tutti i servizi esistenti con `gethomepage.dev/enabled: "true"` appaiono automaticamente
+- Homepage reads annotations from **all** IngressRoutes in the cluster (including other namespaces)
+- `test.unifi.localdomain` is for testing only: you can remove it by deleting `flux/dashboard/test-service.yaml`
+- The Homepage service uses RBAC to automatically read cluster resources
+- All existing services with `gethomepage.dev/enabled: "true"` appear automatically

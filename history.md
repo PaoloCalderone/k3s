@@ -1,32 +1,32 @@
-# History — Cluster K3s + Talos Linux su Proxmox — 3 CP + 3 Worker (HA)
+# History — K3s Cluster + Talos Linux on Proxmox — 3 CP + 3 Worker (HA)
 
-Data di creazione: 2025-09-20
-Ultima modifica: 2025 — 3 CP + 3 Worker HA con NFS CSI + HAProxy + PBS + rete 192.168.9.0/24
+Creation date: 2025-09-20
+Last modified: 2025 — 3 CP + 3 Worker HA with NFS CSI + HAProxy + PBS + 192.168.9.0/24 network
 
-## Aggiornamento: da 1 CP + 2 Worker a 3 CP + 3 Worker (HA)
+## Update: from 1 CP + 2 Workers to 3 CP + 3 Workers (HA)
 
-### Motivazione
+### Motivation
 
-Il cluster originale era configurato con **1 Control Plane + 2 Worker**. Questo aveva un **singolo punto di fallimento (SPOF)**:
+The original cluster was configured with **1 Control Plane + 2 Workers**. This had a **single point of failure (SPOF)**:
 
-- Se il nodo CP muore → etcd si ferma → API server down → cluster morto
+- If the CP node goes down → etcd stops → API server down → cluster is dead
 
-### Nuova Architettura — 3 CP + 3 Worker
+### New Architecture — 3 CP + 3 Workers
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
-│  Proxmox VE (3 nodi fisici: pve1, pve2, pve3 — 15 GB RAM ciascuno)                   │
+│  Proxmox VE (3 physical nodes: pve1, pve2, pve3 — 15 GB RAM each)                   │
 │                                                                                      │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐                          │
-│  │  Nodo pve1     │  │  Nodo pve2     │  │  Nodo pve3     │                          │
+│  │  Node pve1     │  │  Node pve2     │  │  Node pve3     │                          │
 │  │  (15 GB RAM)   │  │  (15 GB RAM)   │  │  (15 GB RAM)   │                          │
 │  │                │  │                │  │                │                          │
 │  │ k8s-cp1       │  │ k8s-cp2       │  │ k8s-cp3       │  ← Control Plane (3)     │
-│  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 nodi etcd cluster     │
+│  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3-node etcd cluster     │
 │  │ 192.168.9.10   │  │ 192.168.9.11   │  │ 192.168.9.12   │                          │
 │  │                │  │                │  │                │                          │
 │  │ k8s-w1         │  │ k8s-w2         │  │ k8s-w3         │  ← Worker (3)           │
-│  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 nodi workload         │
+│  │ (4 GB RAM)     │  │ (4 GB RAM)     │  │ (4 GB RAM)     │  3 workload nodes        │
 │  │ 192.168.9.10*  │  │ 192.168.9.20   │  │ 192.168.9.30   │                          │
 │  └────────────────┘  └────────────────┘  └────────────────┘                          │
 │                                                                                      │
@@ -34,28 +34,28 @@ Il cluster originale era configurato con **1 Control Plane + 2 Worker**. Questo 
 │  │ haproxy-lb     │  ← Load Balancer (VIP)                                           │
 │  │ (1 GB RAM)     │  192.168.9.99:6443 (Kubernetes API)                               │
 │  │                │  192.168.9.9 (Traefik HTTP/S)                                    │
-│  │                │  Bilancia verso CP-1 + CP-2 + CP-3                               │
+│  │                │  Load balances across CP-1 + CP-2 + CP-3                         │
 │  └────────────────┘                                                                  │
 │                                                                                      │
 │  ┌────────────────┐                                                                  │
-│  │ TrueNAS        │  ← NAS Esterno (Storage)                                         │
+│  │ TrueNAS        │  ← External NAS (Storage)                                        │
 │  │ (NFS Server)   │  192.168.9.9 — NFS v4.2                                         │
-│  │ 10 GbE NIC     │  Connection → K8s via 2.5 GbE NICs                               │
+│  │ 10 GbE NIC     │  Connection → K8s via 2.5 GbE NICs                              │
 │  └────────────────┘                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Aggiornamento: Ristrutturazione rete (192.168.1.0/24 → 192.168.9.0/24)
+## Update: Network Restructuring (192.168.1.0/24 → 192.168.9.0/24)
 
-### Motivazione
+### Motivation
 
-Il cluster era configurato sulla rete `192.168.1.0/24` con indirizzi混乱. Si è scelto di passare a una rete dedicata (`192.168.9.0/24`) con una logica di indirizzamento chiara:
+The cluster was configured on the `192.168.1.0/24` network with confusing address assignments. We decided to move to a dedicated network (`192.168.9.0/24`) with clear addressing logic:
 
-- `192.168.9.1` — `192.168.9.99`: Indirizzi statici riservati
-- `192.168.9.100` — `192.168.9.254`: DHCP (device LAN/WiFi)
-- `.10` — `.12`: Nodi Control Plane
-- `.10`, `.20`, `.30`: Nodi Worker
-- `.8`, `.9`: HA VIP + MetalLB (servizi esposti)
-- `.200` — `.220`: MetalLB pool (servizi Type:LoadBalancer)
+- `192.168.9.1` — `192.168.9.99`: Reserved static addresses
+- `192.168.9.100` — `192.168.9.254`: DHCP (LAN/WiFi devices)
+- `.10` — `.12`: Control Plane nodes
+- `.10`, `.20`, `.30`: Worker nodes
+- `.8`, `.9`: HA VIP + MetalLB (exposed services)
+- `.200` — `.220`: MetalLB pool (Type:LoadBalancer services)
 
-Vedi `docs/network.md` per la documentazione completa della rete.
+See `docs/network.md` for the complete network documentation.

@@ -1,142 +1,142 @@
-# 📋 Riepilogo Modifiche — Da 1 CP + 2 Worker a 3 CP + 3 Worker (HA)
+# 📋 Change Summary — From 1 CP + 2 Workers to 3 CP + 3 Workers (HA)
 
-## Riassunto delle modifiche
+## Summary of Changes
 
-### Architettura
+### Architecture
 
-| Aspect | Prima | Dopo |
-|--------|-------|------|
-| Nodi Control Plane | 1 | **3 (HA)** |
-| Nodi Worker | 2 | **3** |
-| Total VM K8s | 3 | **6** |
-| Total VM Proxmox | 3 | **7** (6 K8s + 1 HAProxy) |
-| Control Plane Endpoint | 192.168.1.100:6443 (singolo nodo) | **192.168.1.99:6443 (VIP)** |
-| Load Balancer | nessuno | **HAProxy (VM dedicata)** |
-| Storage | Longhorn (locale, replica tra nodi K8s) | **NFS CSI (TrueNAS, dati su NAS)** |
-| Backup | Longhorn backup (interno) | **Proxmox Backup Server (PBS, hypervisor)** |
+| Aspect | Before | After |
+|--------|--------|-------|
+| Control Plane Nodes | 1 | **3 (HA)** |
+| Worker Nodes | 2 | **3** |
+| Total K8s VMs | 3 | **6** |
+| Total Proxmox VMs | 3 | **7** (6 K8s + 1 HAProxy) |
+| Control Plane Endpoint | 192.168.1.100:6443 (single node) | **192.168.1.99:6443 (VIP)** |
+| Load Balancer | none | **HAProxy (dedicated VM)** |
+| Storage | Longhorn (local, replicated across K8s nodes) | **NFS CSI (TrueNAS, data on NAS)** |
+| Backup | Longhorn backup (internal) | **Proxmox Backup Server (PBS, hypervisor)** |
 
 ---
 
-## File modificati
+## Modified Files
 
-### Infrastructure Terraform (5 file)
+### Infrastructure Terraform (5 files)
 
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `infrastructure/terraform/main.tf` | **Completamente riscritto**: ora crea 6 VM K8s + 1 HAProxy (7 VM totali) |
-| `infrastructure/terraform/variables.tf` | **Completamente riscritto**: variables per 3 CP + 3 Worker + NFS TrueNAS + HA VIP |
-| `infrastructure/terraform/outputs.tf` | **Completamente riscritto**: output per 6 nodi + VIP + TrueNAS |
-| `infrastructure/terraform/terraform.tfvars.example` | **Completamente riscritto**: template con 3+3 config |
+| `infrastructure/terraform/main.tf` | **Completely rewritten**: now creates 6 K8s VMs + 1 HAProxy (7 VMs total) |
+| `infrastructure/terraform/variables.tf` | **Completely rewritten**: variables for 3 CP + 3 Workers + NFS TrueNAS + HA VIP |
+| `infrastructure/terraform/outputs.tf` | **Completely rewritten**: output for 6 nodes + VIP + TrueNAS |
+| `infrastructure/terraform/terraform.tfvars.example` | **Completely rewritten**: template with 3+3 config |
 
-### Talos Machine Config (6 file)
+### Talos Machine Config (6 files)
 
-| File | Ruolo |
-|------|-------|
-| `infrastructure/talos/cluster-config.yaml` | **Modificato**: cluster con 3 CP, HA VIP, storage NFS note |
-| `infrastructure/talos/node1-controlplane.yaml` | **Modificato**: CP-1 con additionalEtcdHosts + additionalKubeAPIHosts |
-| `infrastructure/talos/node2-controlplane.yaml` | **Nuovo**: CP-2 con additionalEtcdHosts + additionalKubeAPIHosts |
-| `infrastructure/talos/node3-controlplane.yaml` | **Nuovo**: CP-3 con additionalEtcdHosts + additionalKubeAPIHosts |
-| `infrastructure/talos/node2-worker.yaml` | **Modificato**: Worker 1 con HA VIP |
-| `infrastructure/talos/node3-worker.yaml` | **Modificato**: Worker 2 con HA VIP |
-| `infrastructure/talos/node4-worker.yaml` | **Nuovo**: Worker 3 con HA VIP |
+| File | Role |
+|------|------|
+| `infrastructure/talos/cluster-config.yaml` | **Modified**: cluster with 3 CP, HA VIP, NFS storage notes |
+| `infrastructure/talos/node1-controlplane.yaml` | **Modified**: CP-1 with additionalEtcdHosts + additionalKubeAPIHosts |
+| `infrastructure/talos/node2-controlplane.yaml` | **New**: CP-2 with additionalEtcdHosts + additionalKubeAPIHosts |
+| `infrastructure/talos/node3-controlplane.yaml` | **New**: CP-3 with additionalEtcdHosts + additionalKubeAPIHosts |
+| `infrastructure/talos/node2-worker.yaml` | **Modified**: Worker 1 with HA VIP |
+| `infrastructure/talos/node3-worker.yaml` | **Modified**: Worker 2 with HA VIP |
+| `infrastructure/talos/node4-worker.yaml` | **New**: Worker 3 with HA VIP |
 
-### Flux / GitOps (4 file)
+### Flux / GitOps (4 files)
 
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `flux/kustomization.yaml` | **Modificato**: sostituisce `longhorn.yaml` con `nfs-csi.yaml` |
-| `flux/nfs-csi.yaml` | **Nuovo**: NFS CSI dal TrueNAS (storage class true-nas-nfs + proxmox-local) |
-| `flux/metallb.yaml` | **Modificato**: keep, per LoadBalancer servizi esterni |
-| `flux/coredns-patch.yaml` | **Modificato**: 2 repliche CoreDNS per HA |
-| `flux/apps/example-deployment.yaml` | **Modificato**: usa storage class true-nas-nfs (PVC) |
+| `flux/kustomization.yaml` | **Modified**: replaces `longhorn.yaml` with `nfs-csi.yaml` |
+| `flux/nfs-csi.yaml` | **New**: NFS CSI from TrueNAS (storage class true-nas-nfs + proxmox-local) |
+| `flux/metallb.yaml` | **Modified**: kept, for LoadBalancer external services |
+| `flux/coredns-patch.yaml` | **Modified**: 2 CoreDNS replicas for HA |
+| `flux/apps/example-deployment.yaml` | **Modified**: uses true-nas-nfs storage class (PVC) |
 
 ### Scripts (1 file)
 
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `scripts/bootstrap-talos.sh` | **Completamente riscritto**: bootstrap 6 nodi tramite VIP |
+| `scripts/bootstrap-talos.sh` | **Completely rewritten**: bootstrap 6 nodes via VIP |
 
-### Documentazione (3 file)
+### Documentation (3 files)
 
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `README.md` | **Completamente riscritto**: diagrami 3+3 HA, spiegazioni storage/backup |
-| `docs/01-step-by-step-guide.md` | **Completamente riscritto**: guida con 3 CP + 3 Worker + HAProxy + PBS |
-| `docs/02-migration-summary.md` | **Nuovo**: questo file |
-| `history.md` | **Completamente riscritto**: tracciamento modifiche da 1+2 a 3+3 |
+| `README.md` | **Completely rewritten**: 3+3 HA diagrams, storage/backup explanations |
+| `docs/01-step-by-step-guide.md` | **Completely rewritten**: guide with 3 CP + 3 Worker + HAProxy + PBS |
+| `docs/02-migration-summary.md` | **New**: this file |
+| `history.md` | **Completely rewritten**: tracking changes from 1+2 to 3+3 |
 
-### Renovate (3 file)
+### Renovate (3 files)
 
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `renovate.json5` | **Modificato**: aggiunta regola NFS CSI |
-| `infrastructure/renovate/renovate.json5` | **Modificato**: aggiunta regola NFS CSI |
-| `infrastructure/renovate/fluxbot-rules.json5` | **Modificato**: aggiunta regola nfs-csi-upgrade |
+| `renovate.json5` | **Modified**: added NFS CSI rule |
+| `infrastructure/renovate/renovate.json5` | **Modified**: added NFS CSI rule |
+| `infrastructure/renovate/fluxbot-rules.json5` | **Modified**: added nfs-csi-upgrade rule |
 
 ---
 
-## Nuove strutture
+## New Structures
 
 ### Storage Classes
 
-| Storage Class | Provisioner | Uso |
+| Storage Class | Provisioner | Use |
 |---------------|-------------|-----|
-| `true-nas-nfs` | nfs.csi.k8s.io | Dati persistenti su TrueNAS (RWX) |
-| `proxmox-local` | local-path-provisioner | Dati temporanei su disco locale (RWO) |
+| `true-nas-nfs` | nfs.csi.k8s.io | Persistent data on TrueNAS (RWX) |
+| `proxmox-local` | local-path-provisioner | Temporary data on local disk (RWO) |
 
 ### Node IPs
 
-| Nodo | IP | Ruolo |
-|------|----|-------|
+| Node | IP | Role |
+|------|----|------|
 | k8s-cp1 | 192.168.1.100 | Control Plane 1 (etcd + API) |
 | k8s-cp2 | 192.168.1.101 | Control Plane 2 (etcd + API) |
 | k8s-cp3 | 192.168.1.102 | Control Plane 3 (etcd + API) |
 | k8s-w1 | 192.168.1.110 | Worker 1 |
 | k8s-w2 | 192.168.1.111 | Worker 2 |
 | k8s-w3 | 192.168.1.112 | Worker 3 |
-| haproxy-lb (VIP) | 192.168.1.99 | Load Balancer (API K8s) |
+| haproxy-lb (VIP) | 192.168.1.99 | Load Balancer (K8s API) |
 | TrueNAS | 192.168.1.50 | NAS (NFS v4.2) |
 
 ---
 
-## Cosa NON è cambiato
+## What DID NOT Change
 
-| Elemento | Stato |
-|----------|-------|
-| MetalLB (LoadBalancer servizi) | Rimane, per esporre servizi K8S esterni |
-| CoreDNS (patch) | Rimane, 2 repliche HA |
-| Flux CD (bootstrap) | Rimane, Flux bootstrap GitHub |
-| Renovate (aggiornamenti) | Rimane, PR automatiche |
-| Fluxbot (schema updates) | Rimane, monitora schemi |
-| Proxmox Infrastructure | Rimane, 3 nodi fisici, stack uguale |
-| Talos Linux (OS) | Rimane, immutable OS |
-| K3s (orchestrator) | Rimane, lightweight Kubernetes |
+| Element | Status |
+|---------|--------|
+| MetalLB (LoadBalancer services) | Remains, to expose external K8s services |
+| CoreDNS (patch) | Remains, 2 HA replicas |
+| Flux CD (bootstrap) | Remains, Flux bootstrap GitHub |
+| Renovate (updates) | Remains, automatic PRs |
+| Fluxbot (schema updates) | Remains, monitors schemas |
+| Proxmox Infrastructure | Remains, 3 physical nodes, same stack |
+| Talos Linux (OS) | Remains, immutable OS |
+| K3s (orchestrator) | Remains, lightweight Kubernetes |
 
 ---
 
-## Note importanti
+## Important Notes
 
 ### 1. HAProxy VIP
-L'IP `192.168.1.99` deve essere:
-- **LIBERO** nella tua rete (non assegnato da DHCP)
-- **Raggiungibile** da tutti i nodi del cluster
-- **Retrocompatibile** (se cambi, aggiorna tutti i file)
+The IP `192.168.1.99` must be:
+- **FREE** on your network (not assigned by DHCP)
+- **Reachable** from all cluster nodes
+- **Backward-compatible** (if you change it, update all files)
 
 ### 2. TrueNAS NFS
-Il server TrueNAS deve:
-- Avere **esportato** un share NFS (es. `/mnt/pool/kubernetes`)
-- Avere **accessi NFS v4.2** abilitati
-- Essere **raggiungibile** da tutti i nodi del cluster (rete 2.5 GbE)
+The TrueNAS server must:
+- Have **exported** an NFS share (e.g., `/mnt/pool/kubernetes`)
+- Have **NFS v4.2 access** enabled
+- Be **reachable** from all cluster nodes (2.5 GbE network)
 
 ### 3. Proxmox Backup Server (PBS)
-Il PBS deve:
-- Essere **installato** (server dedicato o VM su Proxmox)
-- Avere un **repository** creato per i backup delle VM del cluster
-- Essere configurato con una **schedule di backup** (opzionale ma consigliato)
+The PBS must:
+- Be **installed** (dedicated server or VM on Proxmox)
+- Have a **repository** created for cluster VM backups
+- Be configured with a **backup schedule** (optional but recommended)
 
-### 4. backup PBS vs dati NFS
-I dati del cluster vivono sul TrueNAS (NFS), il backup delle VM è gestito da PBS.
-Sono due sistemi **indipendenti**:
-- Se perdi il cluster K8s → puoi ricrearlo e i dati sono sul TrueNAS
-- Se perdi il TrueNAS → puoi restore le VM dal PBS (ma i dati PVC sono persi)
-- **Piano consigliato:** backup anche del TrueNAS (export, snapshot del pool)
+### 4. PBS backup vs NFS data
+Cluster data lives on TrueNAS (NFS), VM backup is handled by PBS.
+These are two **independent** systems:
+- If you lose the K8s cluster → you can recreate it and data is on TrueNAS
+- If you lose TrueNAS → you can restore VMs from PBS (but PVC data is lost)
+- **Recommended plan:** also backup TrueNAS (exports, pool snapshots)

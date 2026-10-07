@@ -1,8 +1,8 @@
-# Guida operativa: Ubuntu 24.04 e K3s HA
+# Operational Guide: Ubuntu 24.04 and K3s HA
 
-## 1. Preparazione
+## 1. Preparation
 
-Verificare quorum Proxmox, bridge `vmbr9`, routing verso `192.168.9.0/24`, NFS `192.168.9.9` e riserva DHCP del pool MetalLB.
+Verify Proxmox quorum, `vmbr9` bridge, routing to `192.168.9.0/24`, NFS `192.168.9.9` and MetalLB pool DHCP reservation.
 
 ```bash
 ssh-keygen -t ed25519 -a 100 -f ~/.ssh/k3s_homelab -C k3s-homelab
@@ -10,9 +10,9 @@ chmod 600 ~/.ssh/k3s_homelab
 chmod 644 ~/.ssh/k3s_homelab.pub
 ```
 
-Il token Proxmox resta in `~/.config/k3s-proxmox.env`; non copiarlo nel repository.
+The Proxmox token stays in `~/.config/k3s-proxmox.env`; do not copy it to the repository.
 
-## 2. Gate statici
+## 2. Static Gateways
 
 ```bash
 cd infrastructure/terraform
@@ -26,18 +26,18 @@ bash -n scripts/bootstrap-k3s.sh
 kubectl kustomize flux >/dev/null
 ```
 
-Revisionare attentamente creazioni e distruzioni. Non procedere se VMID o IP risultano occupati.
+Carefully review creations and deletions. Do not proceed if VMIDs or IPs appear to be in use.
 
-## 3. Provisioning VM
+## 3. VM Provisioning
 
 ```bash
 cd infrastructure/terraform
 terraform apply
 ```
 
-Attendere che tutte le VM abbiano terminato cloud-init e siano raggiungibili via SSH. Terraform usa Ubuntu 24.04 cloud image, QEMU guest agent, static IP e chiave SSH.
+Wait for all VMs to finish cloud-init and be reachable via SSH. Terraform uses Ubuntu 24.04 cloud image, QEMU guest agent, static IP and SSH key.
 
-## 4. Bootstrap K3s
+## 4. K3s Bootstrap
 
 ```bash
 cd ../..
@@ -47,15 +47,15 @@ kubectl get nodes -o wide
 kubectl get --raw='/readyz?verbose'
 ```
 
-Sequenza automatizzata:
+Automated sequence:
 
-1. primo server con `cluster-init`;
-2. secondo e terzo server aggiunti al cluster embedded-etcd;
-3. DaemonSet kube-vip e attesa di `192.168.9.99:6443`;
-4. tre agent collegati al VIP;
-5. estrazione del kubeconfig e attesa dei nodi Ready.
+1. First server with `cluster-init`;
+2. Second and third servers added to the embedded-etcd cluster;
+3. kube-vip DaemonSet and wait for `192.168.9.99:6443`;
+4. Three agents connected to the VIP;
+5. kubeconfig extraction and wait for nodes Ready.
 
-## 5. Controlli HA
+## 5. HA Checks
 
 ```bash
 kubectl -n kube-system rollout status daemonset/kube-vip-ds
@@ -64,28 +64,28 @@ kubectl get pods -A
 curl -k https://192.168.9.99:6443/readyz
 ```
 
-Spegnere un solo control plane alla volta e verificare che VIP e API rimangano disponibili. Ripetere per ciascun server. Il cluster embedded-etcd a tre membri tollera la perdita di un membro.
+Power off one control plane at a time and verify that the VIP and API remain available. Repeat for each server. The three-member embedded-etcd cluster tolerates the loss of one member.
 
 ## 6. Flux
 
-Conservare l'autenticazione GitHub fuori dalla cronologia shell. Eseguire `flux bootstrap github --owner=PaoloCalderone --repository=k3s --personal --branch=main --path=clusters/homelab --version=v2.7.5` (K3s 1.32 non è supportato da Flux 2.9). `clusters/homelab` attiva MetalLB e NFS CSI, ciascuno in due fasi; l'app esempio rimane disattivata. NFS CSI richiede `nfs-common` su tutti i nodi e l'export `192.168.9.9:/mnt/pool/kubernetes` raggiungibile dai nodi. La StorageClass `nfs-csi` non è default: selezionarla esplicitamente nel PVC (`storageClassName: nfs-csi`); `local-path` resta default.
+Keep GitHub authentication out of shell history. Run `flux bootstrap github --owner=PaoloCalderone --repository=k3s --personal --branch=main --path=clusters/homelab --version=v2.7.5` (K3s 1.32 is not supported by Flux 2.9). `clusters/homelab` activates MetalLB and NFS CSI, each in two phases; the example app remains disabled. NFS CSI requires `nfs-common` on all nodes and the export `192.168.9.9:/mnt/pool/kubernetes` reachable from the nodes. The `nfs-csi` StorageClass is not the default: select it explicitly in the PVC (`storageClassName: nfs-csi`); `local-path` remains default.
 
-Prima della riconciliazione:
+Before reconciliation:
 
 ```bash
 kubectl kustomize flux >/tmp/flux-rendered.yaml
 flux check --pre
 ```
 
-La Kustomization `metallb-config` dipende dalla Kustomization `metallb`, che attende la HelmRelease Ready (e le CRD) prima di applicare IPAddressPool e L2Advertisement. Verificare che `192.168.9.200-220` sia escluso dal DHCP prima della riconciliazione.
+The `metallb-config` Kustomization depends on the `metallb` Kustomization, which waits for the HelmRelease to be Ready (and CRDs) before applying IPAddressPool and L2Advertisement. Verify that `192.168.9.200-220` is excluded from DHCP before reconciliation.
 
 ## 7. Backup
 
-- Configurare snapshot etcd K3s e copiarli fuori dalle VM.
-- Configurare snapshot/replica del dataset NFS.
-- Per database, creare dump applicativamente consistenti.
-- Provare il ripristino, non limitarsi alla creazione dei backup.
+- Configure K3s etcd snapshots and copy them off the VMs.
+- Configure NFS dataset snapshots/replication.
+- For databases, create application-consistent dumps.
+- Test restoration, do not just create backups.
 
-## 8. Nessuna applicazione automatica
+## 8. No Automatic Application
 
-Terraform `apply`, bootstrap e Flux devono essere eseguiti separatamente e solo dopo la revisione dei rispettivi output. Questo impedisce a un singolo comando di distruggere e ricreare l'intero ambiente senza gate umano.
+Terraform `apply`, bootstrap and Flux must be run separately and only after reviewing their respective outputs. This prevents a single command from destroying and recreating the entire environment without a human gate.

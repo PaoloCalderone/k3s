@@ -2,13 +2,9 @@
 # Technitium DNS — Server DNS locale per il homelab
 # Esposto via MetalLB su IP di rete per risoluzione DNS globale
 #
-# Questo DNS sostituisce il DNS del router UDM Pro per i servizi interni.
-# Tutti i client sulla rete 192.168.9.0/24 possono usarlo come DNS server.
-#
-# Configurazione DHCP sul router:
-#   DNS Server: 192.168.9.53 (IP MetalLB di Technitium)
-#
-# Wildcard DNS configurata nel container:
+# Forwarding configurato:
+#   cluster.local → 10.43.0.10 (CoreDNS k3s kube-dns)
+# Wildcard configurata:
 #   *.unifi.localdomain → 192.168.9.200 (MetalLB di Traefik)
 
 apiVersion: v1
@@ -24,9 +20,75 @@ kind: ServiceAccount
 metadata:
   name: technitium-dns
   namespace: dns
+  labels:
+    app: technitium-dns
+
+---
+# ConfigMap con configurazione DNS e script di bootstrap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: technitium-dns-config
+  namespace: dns
+  labels:
+    app: technitium-dns
+data:
+  Config: |
+    [Settings]
+    DNS_PORT_NUMBER=53
+    PANEL_PORT_NUMBER=5380
+    ALLOW_PANEL_ACCESS_FROM_LAN=true
+    BLOCK_QUERY_LOGGING=false
+    ENABLE_RECURSION=true
+    PRIMARYDNS=8.8.8.8
+    SECONDDNS=1.1.1.1
+    IPV6_ENABLED=false
+  bootstrap.sh: |
+    #!/bin/sh
+    echo "=== Bootstrap DNS ==="
+    echo "  Attesa 45s per inizializzazione Technitium..."
+    sleep 45
+    echo "  Login in corso..."
+    # Attendo che l'API sia pronta
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+      curl -s -o /tmp/t.json -X POST http://localhost:5380/api/user/login -d "user=${TECHNITIUM_ADMIN_USER:-admin}&pass=${TECHNITIUM_ADMIN_PASSWORD:-}&totp=&includeInfo=true"
+      if grep -q '"status":"ok"' /tmp/t.json 2>/dev/null; then
+        break
+      fi
+      sleep 5
+    done
+    if grep -q '"status":"ok"' /tmp/t.json 2>/dev/null; then
+      TOKEN=$(cat /tmp/t.json | tr \, \n | grep token | cut -d: -f2 | tr -d \")
+      echo "  ✓ API pronta"
+      ZONES=$(curl -s "http://localhost:5380/api/zones/list" -H "Authorization: Bearer $TOKEN")
+      echo "$ZONES" | grep -q cluster.local || curl -s -X POST "http://localhost:5380/api/zones/create?zone=cluster.local&type=Forwarder&catalog=&protocol=UDP&forwarder=10.43.0.10&dnssecValidation=false&node=this-server" -H "Authorization: Bearer $TOKEN" && echo "  ✓ cluster.local" || echo "  ✗ cluster.local"
+      echo "$ZONES" | grep -q unifi.localdomain || curl -s -X POST "http://localhost:5380/api/zones/create?zone=unifi.localdomain&type=Primary&catalog=&node=this-server" -H "Authorization: Bearer $TOKEN" && echo "  ✓ unifi.localdomain" || echo "  ✗ unifi.localdomain"
+      echo "$ZONES" | grep -q '.*unifi.localdomain' || curl -s -X POST "http://localhost:5380/api/zones/records/add?node=this-server" -d "zone=unifi.localdomain&domain=*.unifi.localdomain&type=A&ttl=60&overwrite=true&comments=&expiryTtl=0&ipAddress=192.168.9.200&ptr=false&createPtrZone=false&updateSvcbHints=false" -H "Authorization: Bearer $TOKEN" && echo "  ✓ wildcard" || echo "  ✗ wildcard"
+    else
+      echo "  ✗ API non disponibile"
+      cat /tmp/t.json 2>/dev/null
+    fi
+    echo "=== Bootstrap ==="
 
 ---
 apiVersion: apps/v1
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: technitium-dns-secret
+  namespace: dns
+  labels:
+    app: technitium-dns
+type: Opaque
+stringData:
+  # Username per accedere alla web UI di Technitium
+  admin-username: "admin"
+  # Password per accedere alla web UI di Technitium
+  # GENERARE UNA PASSWORD STRONG:
+  #   openssl rand -base64 32
+  admin-password: "CHANGE-ME-USE-A-STRONG-PASSWORD"
+
 kind: Deployment
 metadata:
   name: technitium-dns
@@ -45,13 +107,11 @@ spec:
       labels:
         app: technitium-dns
     spec:
-      # Non usare hostNetwork per evitare conflitti con CoreDNS
-      # Technitium sarà esposto via LoadBalancer su 192.168.9.53:53
       dnsPolicy: ClusterFirst
       serviceAccountName: technitium-dns
       containers:
         - name: technitium-dns
-          image: technitium/dns:latest
+          image: technitium/dns-server:latest
           imagePullPolicy: Always
           ports:
             - name: dns-tcp
@@ -61,13 +121,13 @@ spec:
               containerPort: 53
               protocol: UDP
             - name: web
-              containerPort: 80
+              containerPort: 5380
               protocol: TCP
           env:
-            - name: PANEL_PORT_NUMBER
-              value: "80"
             - name: DNS_PORT_NUMBER
               value: "53"
+            - name: PANEL_PORT_NUMBER
+              value: "5380"
             - name: ALLOW_PANEL_ACCESS_FROM_LAN
               value: "true"
             - name: BLOCK_QUERY_LOGGING
@@ -78,9 +138,24 @@ spec:
               value: "8.8.8.8"
             - name: SECONDDNS
               value: "1.1.1.1"
+            - name: TECHNITIUM_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: technitium-dns-secret
+                  key: admin-username
+                  optional: true
+            - name: TECHNITIUM_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: technitium-dns-secret
+                  key: admin-password
+                  optional: true
           volumeMounts:
-            - name: config
-              mountPath: /etc/dns
+            - name: dns-config
+              mountPath: /opt/technitium/dns/config
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -88,15 +163,33 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
-          # Non serve privileged se hostNetwork non esplode i conflitti
-          # ma Technitium deve bindare a 0.0.0.0:53 → potrebbe servire
           securityContext:
             capabilities:
               add: ["NET_BIND_SERVICE"]
+          # Command: avvia bootstrap.sh che configura le zone, poi avvia Technitium
+          command:
+            - sh
+            - -c
+            - |
+              # Copia Config se non esiste
+              if [ ! -f /opt/technitium/dns/config/Config ]; then
+                cp /bootstrap/Config /opt/technitium/dns/config/Config
+              fi
+              # Avvia Technitium in background
+              /opt/technitium/dns/start.sh &
+              TECHNITUM_PID=$!
+              # Esegui bootstrap per configurare zone DNS (via sh)
+              sh /bootstrap/bootstrap.sh
+              # Attendi Technitium
+              wait $TECHNITUM_PID
+
       volumes:
-        - name: config
+        - name: dns-config
           persistentVolumeClaim:
             claimName: technitium-dns-config
+        - name: bootstrap
+          configMap:
+            name: technitium-dns-config
 
 ---
 # PVC per configurazione persistente di Technitium
@@ -105,6 +198,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: technitium-dns-config
   namespace: dns
+  labels:
+    app: technitium-dns
 spec:
   accessModes:
     - ReadWriteOnce
@@ -115,7 +210,6 @@ spec:
 
 ---
 # Service ClusterIP per la Web UI di Technitium
-# Non esposto alla rete (solo ClusterIP)
 apiVersion: v1
 kind: Service
 metadata:
@@ -128,14 +222,35 @@ spec:
     app: technitium-dns
   ports:
     - name: web
-      port: 80
-      targetPort: 80
+      port: 5380
+      targetPort: 5380
       protocol: TCP
   type: ClusterIP
 
 ---
+# IngressRoute per accedere alla Web UI di Technitium
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: technitium-web
+  namespace: dns
+  labels:
+    app: technitium-dns
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`dns.unifi.localdomain`)
+      services:
+        - name: technitium-web
+          namespace: dns
+          port: 5380
+  tls:
+    secretName: unifi-localdomain-tls
+
+---
 # Service LoadBalancer per il DNS (UDP/TCP 53)
-# Esposto su MetalLB IP per essere usato come DNS server dalla rete
 apiVersion: v1
 kind: Service
 metadata:

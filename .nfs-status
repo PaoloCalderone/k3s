@@ -1,4 +1,0 @@
-NFS storage operational.
-Verified: PVC bound, pod mounted, file read/write successful.
-Share: 192.168.9.9:/mnt/main/kubernetes
-StorageClass: nfs-csi (select explicitly in PVC)

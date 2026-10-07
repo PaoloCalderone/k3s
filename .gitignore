@@ -59,3 +59,8 @@ Thumbs.db
 # --- Scripts temporanei ---
 *.tmp
 *.tmp.sh
+
+# --- Terrafom plan e status ---
+tfplan
+.nfs-status
+

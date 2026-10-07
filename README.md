@@ -13,6 +13,102 @@ A lightweight, **highly-available Kubernetes** cluster across three Proxmox host
 | k8s-cp3 | 9031 | pve3 | 192.168.9.31  | K3s server / embedded etcd   |
 | k8s-w3  | 9032 | pve3 | 192.168.9.32  | K3s agent                    |
 
+## Infrastructure Diagram
+
+```mermaid
+classDiagram
+    direction TB
+
+    %% ── Physical layer ───────────────────────────────────────────
+    class Proxmox {
+        <<hypervisor>>
+        pve1 / pve2 / pve3
+        mgmt 192.168.0.10 / .20 / .30
+        bridge vmbr9
+    }
+
+    %% ── Cluster layer ────────────────────────────────────────────
+    class ControlPlane {
+        <<K3s server + embedded etcd>>
+        k8s-cp1 192.168.9.11
+        k8s-cp2 192.168.9.21
+        k8s-cp3 192.168.9.31
+    }
+
+    class Workers {
+        <<K3s agents>>
+        k8s-w1 192.168.9.12
+        k8s-w2 192.168.9.22
+        k8s-w3 192.168.9.32
+    }
+
+    class KubeVIP {
+        <<HA API endpoint>>
+        vip 192.168.9.99:6443
+    }
+
+    class Flux {
+        <<GitOps>>
+        github.com/PaoloCalderone/k3s
+        clusters/homelab
+    }
+
+    %% ── Services layer ───────────────────────────────────────────
+    class MetalLB {
+        <<LoadBalancer>>
+        pool 192.168.9.200-220
+    }
+
+    class Traefik {
+        <<Ingress>>
+        ip 192.168.9.200
+        routes *.unifi.localdomain
+    }
+
+    class Technitium {
+        <<DNS>>
+        ip 192.168.9.53
+        zones cluster.local + unifi.localdomain
+    }
+
+    class Homepage {
+        <<Dashboard>>
+        homepage.unifi.localdomain
+    }
+
+    class Monitoring {
+        <<Prometheus + Grafana + Alertmanager>>
+        grafana.unifi.localdomain
+    }
+
+    class NFS {
+        <<CSI storage>>
+        TrueNAS 192.168.9.9:/mnt/main/kubernetes
+        StorageClass nfs-csi
+    }
+
+    %% ── Relationships ────────────────────────────────────────────
+    Proxmox --> ControlPlane : hosts 3 CP
+    Proxmox --> Workers : hosts 3 workers
+
+    ControlPlane --> KubeVIP : advertise VIP
+    Workers --> KubeVIP : reach API
+    KubeVIP --> ControlPlane : HA failover
+
+    Flux --> ControlPlane : reconcile
+    Flux --> Workers : reconcile
+
+    MetalLB --> Traefik : assigns 192.168.9.200
+    MetalLB --> Technitium : assigns 192.168.9.53
+
+    Technitium --> Traefik : *.unifi.localdomain -> 192.168.9.200
+    Traefik --> Homepage : routes
+    Traefik --> Monitoring : routes
+
+    Monitoring --> NFS : PVCs
+    Homepage --> NFS : config
+```
+
 - **API VIP (kube-vip):** `192.168.9.99:6443`
 - **NFS:** `192.168.9.9:/mnt/pool/kubernetes`
 - **MetalLB pool:** `192.168.9.200–192.168.9.220` (keep it out of DHCP)

@@ -6,19 +6,19 @@
 
 ---
 
-## ✅ Current Status (Day 1)
+## Current Status (Day 1)
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **6 Nodes** | ✅ Running | 3 CP (CP1/CP2/CP3) + 3 workers (W1/W2/W3) |
-| **k3s** | ✅ v1.32.2+k3s1 | All nodes Ready |
-| **kube-vip** | ✅ v1.2.4 | HA VIP `192.168.9.99:6443` |
-| **Traefik** | ✅ LoadBalancer | External IP `192.168.9.200` via MetalLB |
-| **CoreDNS** | ✅ Running | DNS resolution |
-| **Metrics Server** | ✅ Running | Pod resource metrics |
-| **NFS CSI** | ✅ Working | PVC bound, pod mounted, read/write verified on `192.168.9.9:/mnt/main/kubernetes` |
-| **Flannel** | ✅ Running | Pod networking (10.42.0.0/16) |
-| **Flux** | ✅ v2.7.5 | GitOps bootstrap, 5 Kustomizations + 2 HelmReleases all Ready |
+| **6 Nodes** | Running | 3 CP (CP1/CP2/CP3) + 3 workers (W1/W2/W3) |
+| **k3s** | v1.32.2+k3s1 | All nodes Ready |
+| **kube-vip** | v1.2.4 | HA VIP `192.168.9.99:6443` |
+| **Traefik** | LoadBalancer | External IP `192.168.9.200` via MetalLB |
+| **CoreDNS** | Running | DNS resolution |
+| **Metrics Server** | Running | Pod resource metrics |
+| **NFS CSI** | Working | PVC bound, pod mounted, read/write verified on `192.168.9.9:/mnt/main/kubernetes` |
+| **Flannel** | Running | Pod networking (10.42.0.0/16) |
+| **Flux** | v2.7.5 | GitOps bootstrap, 5 Kustomizations + 2 HelmReleases all Ready |
 
 ### Known fixes applied
 - kube-vip upgraded from v0.8.9 → v1.2.4 (fixed env-var concatenation bug)
@@ -29,9 +29,9 @@
 
 ---
 
-## 📋 Prioritized Backlog
+## Prioritized Backlog
 
-### ✅ P0 — Completed
+### P0 — Completed
 
 #### 1. MetalLB (external IPs for services)
 Flux manages `flux/metallb/` (HelmRepository + HelmRelease) then `flux/metallb-config/` (IP pool + L2 advertisement). Traefik receives `192.168.9.200`.
@@ -40,9 +40,9 @@ Flux manages `flux/metallb/` (HelmRepository + HelmRelease) then `flux/metallb-c
 kubectl --kubeconfig=kubeconfig -n kube-system get svc traefik
 ```
 
-### 🟡 P1 — Core homelab services
+### P1 — Core homelab services
 
-#### 2. Storage (NFS) — ✅ Working
+#### 2. Storage (NFS) — Working
 Flux manages `flux/nfs-driver/` (CSI HelmRelease) and `flux/nfs-config/` (StorageClass). Writes verified: test PVC bound, pod mounted, file read/write successful on `192.168.9.9:/mnt/main/kubernetes`.
 
 ```bash
@@ -50,7 +50,7 @@ kubectl --kubeconfig=kubeconfig get storageclass
 # Deploy a PVC with storageClassName: nfs-csi to use persistent shared storage.
 ```
 
-#### 3. Monitoring stack — ✅ Working (2026-09-29)
+#### 3. Monitoring stack — Working (2026-09-29)
 - **Prometheus** — scrape all pods (10GB on nfs-csi, 14d retention)
 - **Grafana** — dashboards (LoadBalancer `192.168.9.210:3000`, admin/homelab)
 - **Alertmanager** — alerts (on nfs-csi, 2GB)
@@ -64,7 +64,7 @@ kubectl --kubeconfig=kubeconfig get storageclass
 # Alertmanager: kubectl port-forward svc/monitoring-monitoring-kube-alertmanager 9093 -n monitoring
 ```
 
-### 🟢 P2 — Nice to have
+### P2 — Nice to have
 
 #### 4. HTTPS (certificates)
 Auto-sign TLS certs for your services.
@@ -95,7 +95,7 @@ sudo k3s kubectl -n kube-system exec -it $(sudo k3s kubectl -n kube-system get p
 
 ---
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 k3s/
@@ -114,7 +114,7 @@ k3s/
 
 ---
 
-## 🔄 Quick reference
+## Quick reference
 
 ```bash
 # Cluster status

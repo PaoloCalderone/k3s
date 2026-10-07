@@ -1,7 +1,7 @@
 # ============================================================
-# Applicazione di Esempio — Deployment + Service + PVC (Storage)
-# Questo file viene deployato da Flux nel cluster K3s
-# Usa storage NFS dal TrueNAS (storage class: true-nas-nfs)
+# Example Application — Deployment + Service + PVC (Storage)
+# This file is deployed by Flux in the K3s cluster
+# Uses NFS storage from TrueNAS (storage class: true-nas-nfs)
 # =========================================
 
 # --- Namespace ---
@@ -14,7 +14,7 @@ metadata:
 
 ---
 
-# --- Deployment: Replica 3 del container (su 3 worker) ---
+# --- Deployment: 3 replicas of the container (on 3 workers) ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: nginx:1.27  # <<< CAMBIA con l'immagine della tua app
+          image: nginx:1.27  # <<< CHANGE with the image of your app
           ports:
             - containerPort: 80
           resources:
@@ -44,7 +44,7 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "100m"
-          # Se hai un secret o configmap da montare:
+          # If you have a secret or configmap to mount:
           # volumeMounts:
           #   - name: config
           #     mountPath: /etc/nginx/conf.d
@@ -52,7 +52,7 @@ spec:
           #   - name: config
           #     configMap:
           #       name: nginx-config
-          # --- Persistent Volume Claim (opzionale — dati su NFS TrueNAS) ---
+          # --- Persistent Volume Claim (optional — data on TrueNAS NFS) ---
           # volumeMounts:
           #   - name: data
           #     mountPath: /data
@@ -63,7 +63,7 @@ spec:
 
 ---
 
-# --- Service: Espone l'app con un IP esterno (MetalLB) ---
+# --- Service: Exposes the app with an external IP (MetalLB) ---
 apiVersion: v1
 kind: Service
 metadata:
@@ -77,14 +77,14 @@ spec:
   ports:
     - port: 80
       targetPort: 80
-  type: LoadBalancer  # <<< MetalLB assegnerà un IP dal pool
+  type: LoadBalancer  # <<< MetalLB will assign an IP from the pool
 
-# Per accedere all'app, trovi l'IP con:
+# To access the app, find the IP with:
 #   kubectl get svc nginx -n example
-# Poi: curl http://<IP-ASSIGNATO>
+# Then: curl http://<ASSIGNED-IP>
 
-# --- Persistent Volume Claim (usando NFS dal TrueNAS) ---
-# (Opzionale — se hai bisogno di storage persistente)
+# --- Persistent Volume Claim (using NFS from TrueNAS) ---
+# (Optional — if you need persistent storage)
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -92,14 +92,14 @@ metadata:
   name: nginx-data
   namespace: example
 spec:
-  # Usa la storage class NFS dal TrueNAS
-  storageClassName: true-nas-nfs  # <<< Storage Class definita in nfs-csi.yaml
+  # Use the NFS storage class from TrueNAS
+  storageClassName: true-nas-nfs  # <<< Storage Class defined in nfs-csi.yaml
   accessModes:
-    - ReadWriteMany  # RWX — accessibile da tutti i pod
+    - ReadWriteMany  # RWX — accessible from all pods
   resources:
     requests:
-      storage: 10Gi  # <<< CAMBIA con lo spazio necessario
+      storage: 10Gi  # <<< CHANGE with the space you need
 
-# --- (Opzionale) Ingress — esponi con un nome di dominio ---
-# Usa Traefik o NGINX Ingress Controller per expose con URL:
+# --- (Optional) Ingress — expose with a domain name ---
+# Use Traefik or NGINX Ingress Controller to expose with a URL:
 #   app.example.com → http://<nginx-service>:80

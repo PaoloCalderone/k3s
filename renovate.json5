@@ -21,7 +21,7 @@
       "groupName": "Talos Stack",
       "automerge": true,
       "labels": ["renovate", "talos"],
-      "schedule": ["* * * * 1"]  // Controlla ogni lunedì
+      "schedule": ["* * * * 1"]  // Check every Monday
     },
 
     // --- Kubernetes / K3s: grouped, automated ---

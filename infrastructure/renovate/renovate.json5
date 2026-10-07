@@ -10,8 +10,8 @@
   "prTitle": "{{{prefix}}}{{{generateSummaries}}}{{{depositary}}}{{{depNameLong}}}: {{{currentValue}}} → {{{newVersion}}}",
   "prHourlyLimit": 5,
   "labels": ["renovate"],
-  "automerge": true,  // Approva e merge automaticamente le PR (senza human approval)
-  "automergeType": "pr",  // Crea PR invece di merge diretto (più sicuro)
+  "automerge": true,  // Automatically approve and merge the PRs (without human approval)
+  "automergeType": "pr",  // Create PRs instead of direct merge (safer)
 
   // === Package Rules ===
 
@@ -24,7 +24,7 @@
       "groupName": "Talos Stack",
       "automerge": true,
       "labels": ["renovate", "talos"],
-      "schedule": ["* * * * 1"]  // Controlla ogni lunedì
+      "schedule": ["* * * * 1"]  // Check every Monday
     },
 
     // --- Kubernetes / K3s: grouped, automated ---

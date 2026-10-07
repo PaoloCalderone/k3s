@@ -1,6 +1,6 @@
 ---
 # Homepage IngressRoute — expose dashboard.unifi.localdomain
-# Homepage si auto-riconosce e non si mostra come card del dashboard.
+# Homepage self-identifies and does not show itself as a dashboard card.
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -8,7 +8,7 @@ metadata:
   name: homepage
   namespace: flux-system
   annotations:
-    # Homepage riconosce la propria rotta e la nasconde dalla lista delle card
+    # Homepage recognizes its own route and hides it from the card list
     gethomepage.dev/enabled: "false"
 spec:
   entryPoints:

@@ -1,5 +1,5 @@
 ---
-# Node Stats — API + Dashboard per CPU/RAM dei nodi k3s
+# Node Stats — API + Dashboard for CPU/RAM of the k3s nodes
 
 apiVersion: v1
 kind: Namespace
@@ -60,29 +60,29 @@ metadata:
   namespace: node-stats
 data:
   server.js: |
-              // Node Stats API — proxy per il metrics-server del cluster k3s
-              // Legge /apis/metrics.k8s.io/v1beta1/nodes (metrics-server)
-              // Espone /api/nodes → JSON con CPU/RAM di tutti i nodi
-              // Espone / → Dashboard HTML
-              
+              // Node Stats API — proxy for the k3s cluster metrics-server
+              // Reads /apis/metrics.k8s.io/v1beta1/nodes (metrics-server)
+              // Exposes /api/nodes → JSON with CPU/RAM for all nodes
+              // Exposes / → HTML Dashboard
+
               const https = require('https');
               const http = require('http');
               const fs = require('fs');
               const { execSync } = require('child_process');
-              
+
               const PORT = parseInt(process.env.PORT) || 8080;
               const API_HOST = process.env.KUBE_API_HOST || '192.168.9.99'; // k3s VIP
-              
-              // Leggi il token del service account kubernetes
+
+              // Read the kubernetes service account token
               function getToken() {
                 try {
                   return fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token', 'utf8').trim();
                 } catch (e) {
-                  console.error('⚠️ Token non trovato — le API kubernetes non saranno accessibili');
+                  console.error('Token not found — kubernetes APIs will not be accessible');
                   return '';
                 }
               }
-              
+
               function getCA() {
                 try {
                   return fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt');
@@ -90,13 +90,13 @@ data:
                   return undefined;
                 }
               }
-              
-              // Chiama l'API kubernetes per ottenere i nodi
+
+              // Call the kubernetes API to fetch the nodes
               function getNodes() {
                 return new Promise((resolve, reject) => {
                   const token = getToken();
                   const ca = getCA();
-              
+
                   const options = {
                     hostname: API_HOST,
                     port: 6443,
@@ -108,7 +108,7 @@ data:
                     },
                     ca: ca,
                   };
-              
+
                   const req = https.request(options, (res) => {
                     let data = '';
                     res.on('data', (chunk) => { data += chunk; });
@@ -122,13 +122,13 @@ data:
                   req.end();
                 });
               }
-              
-              // Chiama il metrics-server per le metriche
+
+              // Call the metrics-server for metrics
               function getMetrics() {
                 return new Promise((resolve, reject) => {
                   const token = getToken();
                   const ca = getCA();
-              
+
                   const options = {
                     hostname: API_HOST,
                     port: 6443,
@@ -140,7 +140,7 @@ data:
                     },
                     ca: ca,
                   };
-              
+
                   const req = https.request(options, (res) => {
                     let data = '';
                     res.on('data', (chunk) => { data += chunk; });
@@ -156,8 +156,8 @@ data:
                   req.end();
                 });
               }
-              
-              // Formatta le risorse
+
+              // Format resources
               function formatBytes(bytes) {
                 if (typeof bytes === 'string') bytes = parseInt(bytes.replace(/Ki|Mi|Gi/g, '')) || 0;
                 if (bytes === 0) return '0 B';
@@ -170,17 +170,17 @@ data:
                 else { unitIndex = Math.floor(Math.log2(val) / 10); }
                 return val.toFixed(1) + ' ' + units[unitIndex];
               }
-              
+
               function formatMilliCPUs(milli) {
                 return (milli / 1000).toFixed(2) + ' cores';
               }
-              
+
               async function buildStats() {
                 let nodesData = [];
                 let metricsData = {};
                 let error = '';
-              
-                // Ottieni i nodi
+
+                // Fetch the nodes
                 try {
                   const nodes = await getNodes();
                   nodesData = (nodes.items || []).map(n => ({
@@ -189,20 +189,20 @@ data:
                     labels: n.metadata.labels || {},
                   }));
                 } catch (e) {
-                  error = 'Errore lettura nodi: ' + e.message;
+                  error = 'Error reading nodes: ' + e.message;
                 }
-              
-                // Ottieni le metriche
+
+                // Fetch the metrics
                 try {
                   const metrics = await getMetrics();
                   (metrics.items || []).forEach(m => {
                     metricsData[m.metadata.name] = m;
                   });
                 } catch (e) {
-                  error = (error ? error + '; ' : '') + 'metrics-server non disponibile: ' + e.message;
+                  error = (error ? error + '; ' : '') + 'metrics-server unavailable: ' + e.message;
                 }
-              
-                // Combina i dati
+
+                // Combine the data
                 const stats = nodesData.map(node => {
                   const metric = metricsData[node.name] || {};
                   const usage = metric.containers?.reduce((sum, c) => {
@@ -210,19 +210,19 @@ data:
                     sum.mem += parseFloat(c.usage?.memory?.replace('Ki', '') || 0);
                     return sum;
                   }, { cpu: 0, mem: 0 }) || { cpu: 0, mem: 0 };
-              
-                  // CPU allocatabile
+
+                  // Allocatable CPU
                   const cpuAllocStr = node.allocatable?.cpu || '0';
                   const cpuAlloc = parseInt(cpuAllocStr) * 1000; // cores → milli-cores
                   const cpuUsed = usage.cpu; // Ki → ... no, let's keep it simple
                   const cpuPct = cpuAlloc > 0 ? Math.round((usage.cpu / (cpuAlloc / 1000)) * 10000) / 100 : 0;
-              
-                  // RAM allocatabile
+
+                  // Allocatable RAM
                   const memAllocStr = node.allocatable?.memory || '0';
                   const memAlloc = parseInt(memAllocStr.replace(/Ki|Mi|Gi/g, '')) || 0;
                   const memUsed = usage.mem;
                   const memPct = memAlloc > 0 ? Math.round((memUsed / memAlloc) * 10000) / 100 : 0;
-              
+
                   return {
                     name: node.name,
                     status: 'Ready',
@@ -237,7 +237,7 @@ data:
                     timestamp: metric.timestamp || new Date().toISOString(),
                   };
                 });
-              
+
                 return {
                   cluster: 'k3s-homelab',
                   nodes: stats,
@@ -247,10 +247,10 @@ data:
                   source: 'metrics-server',
                 };
               }
-              
+
               // HTML Dashboard
               const DASHBOARD_HTML = `<!DOCTYPE html>
-              <html lang="it">
+              <html lang="en">
               <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -317,15 +317,15 @@ data:
               </head>
               <body>
                 <div class="header">
-                  <h1>🖥️ Cluster Node Statistics</h1>
-                  <p id="timestamp">Caricamento...</p>
-                  <button class="refresh-btn" onclick="loadStats()">🔄 Refresh</button>
+                  <h1>Cluster Node Statistics</h1>
+                  <p id="timestamp">Loading...</p>
+                  <button class="refresh-btn" onclick="loadStats()">Refresh</button>
                 </div>
                 <div id="error"></div>
                 <div class="stats-row" id="totals">
-                  <div class="stat-card"><div class="label">Nodi Totali</div><div class="value" id="totalNodes">-</div></div>
-                  <div class="stat-card"><div class="label">CPU Cluster</div><div class="value cpu-value" id="totalCPU">-</div></div>
-                  <div class="stat-card"><div class="label">Memoria Cluster</div><div class="value mem-value" id="totalMem">-</div></div>
+                  <div class="stat-card"><div class="label">Total Nodes</div><div class="value" id="totalNodes">-</div></div>
+                  <div class="stat-card"><div class="label">Cluster CPU</div><div class="value cpu-value" id="totalCPU">-</div></div>
+                  <div class="stat-card"><div class="label">Cluster Memory</div><div class="value mem-value" id="totalMem">-</div></div>
                 </div>
                 <div class="node-grid" id="nodeGrid"></div>
                 <script>
@@ -334,9 +334,9 @@ data:
                       const res = await fetch('/api/nodes');
                       const data = await res.json();
                       document.getElementById('error').innerHTML = data.error
-                        ? '<div class="error-banner">⚠️ ' + data.error + '</div>' : '';
+                        ? '<div class="error-banner">' + data.error + '</div>' : '';
                       document.getElementById('timestamp').textContent =
-                        'Aggiornato: ' + new Date(data.at).toLocaleString('it-IT');
+                        'Updated: ' + new Date(data.at).toLocaleString('en-US');
                       document.getElementById('totalNodes').textContent = data.count || 0;
                       const nodes = (data.nodes || []);
                       const cpuPcts = nodes.map(n => n.cpuPercent || 0);
@@ -347,7 +347,7 @@ data:
                       document.getElementById('totalMem').textContent = memAvg + '%';
                       const grid = document.getElementById('nodeGrid');
                       if (nodes.length === 0) {
-                        grid.innerHTML = '<div class="error-banner">⚠️ Nessun dato dai nodi. Verifica che il metrics-server sia attivo.</div>';
+                        grid.innerHTML = '<div class="error-banner">No data from nodes. Verify that the metrics-server is active.</div>';
                         return;
                       }
                       grid.innerHTML = nodes.map(n => {
@@ -358,13 +358,13 @@ data:
                           '<div class="bar-container"><div class="bar bar-cpu" style="width:' + cpu + '%"></div></div>' +
                           '<div class="metric-row" style="margin-top:0.5rem"><span class="metric-label">RAM</span><span class="metric-value">' + mem + '%</span></div>' +
                           '<div class="bar-container"><div class="bar bar-mem" style="width:' + mem + '%"></div></div>' +
-                          '<div class="metric-row"><span class="metric-label">CPU usata</span><span class="metric-value">' + (n.cpuUsed || '-') + '</span></div>' +
-                          '<div class="metric-row"><span class="metric-label">RAM usata</span><span class="metric-value">' + (n.memUsed || '-') + '</span></div>' +
-                          '<div class="metric-row"><span class="metric-label">RAM totale</span><span class="metric-value">' + (n.memTotal || '-') + '</span></div>' +
+                          '<div class="metric-row"><span class="metric-label">CPU used</span><span class="metric-value">' + (n.cpuUsed || '-') + '</span></div>' +
+                          '<div class="metric-row"><span class="metric-label">RAM used</span><span class="metric-value">' + (n.memUsed || '-') + '</span></div>' +
+                          '<div class="metric-row"><span class="metric-label">RAM total</span><span class="metric-value">' + (n.memTotal || '-') + '</span></div>' +
                           '</div>';
                       }).join('');
                     } catch (e) {
-                      document.getElementById('error').innerHTML = '<div class="error-banner">⚠️ Errore: ' + e.message + '</div>';
+                      document.getElementById('error').innerHTML = '<div class="error-banner">Error: ' + e.message + '</div>';
                     }
                   }
                   loadStats();
@@ -372,15 +372,15 @@ data:
                 </script>
               </body>
               </html>`;
-              
+
               // HTTP Server
               const server = http.createServer((req, res) => {
                 if (req.url.startsWith('/api/nodes')) {
                   if (req.method !== 'GET') {
                     res.writeHead(405, { 'Content-Type': 'application/json' });
-                    return res.end(JSON.stringify({ error: 'Metodo non consentito' }));
+                    return res.end(JSON.stringify({ error: 'Method not allowed' }));
                   }
-              
+
                   buildStats().then(data => {
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify(data, null, 2));
@@ -393,9 +393,9 @@ data:
                   res.end(DASHBOARD_HTML);
                 }
               });
-              
+
               server.listen(PORT, '0.0.0.0', () => {
-                console.log('🚀 Node Stats API on http://0.0.0.0:' + PORT);
+                console.log('Node Stats API on http://0.0.0.0:' + PORT);
                 console.log('   GET /api/nodes  → JSON node metrics');
                 console.log('   GET /           → Dashboard HTML');
                 console.log('   KUBE_API_HOST: ' + API_HOST);
@@ -478,7 +478,7 @@ metadata:
     gethomepage.dev/name: "Node Stats"
     gethomepage.dev/group: "Monitoring"
     gethomepage.dev/icon: "monitoring"
-    gethomepage.dev/description: "CPU e memoria RAM di tutti i nodi del cluster"
+    gethomepage.dev/description: "CPU and RAM of all nodes in the cluster"
 spec:
   entryPoints:
     - websecure

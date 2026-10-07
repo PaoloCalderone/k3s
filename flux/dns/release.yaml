@@ -1,11 +1,11 @@
 ---
-# Technitium DNS — Server DNS locale per il homelab
-# Esposto via MetalLB su IP di rete per risoluzione DNS globale
+# Technitium DNS — Local DNS server for the homelab
+# Exposed via MetalLB on a network IP for global DNS resolution
 #
-# Forwarding configurato:
+# Forwarding configured:
 #   cluster.local → 10.43.0.10 (CoreDNS k3s kube-dns)
-# Wildcard configurata:
-#   *.unifi.localdomain → 192.168.9.200 (MetalLB di Traefik)
+# Wildcard configured:
+#   *.unifi.localdomain → 192.168.9.200 (Traefik MetalLB)
 
 apiVersion: v1
 kind: Namespace
@@ -24,7 +24,7 @@ metadata:
     app: technitium-dns
 
 ---
-# ConfigMap con configurazione DNS e script di bootstrap
+# ConfigMap with DNS configuration and bootstrap script
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -46,10 +46,10 @@ data:
   bootstrap.sh: |
     #!/bin/sh
     echo "=== Bootstrap DNS ==="
-    echo "  Attesa 45s per inizializzazione Technitium..."
+    echo "  Waiting 45s for Technitium initialization..."
     sleep 45
-    echo "  Login in corso..."
-    # Attendo che l'API sia pronta
+    echo "  Logging in..."
+    # Wait for the API to be ready
     for attempt in 1 2 3 4 5 6 7 8 9 10; do
       curl -s -o /tmp/t.json -X POST http://localhost:5380/api/user/login -d "user=${TECHNITIUM_ADMIN_USER:-admin}&pass=${TECHNITIUM_ADMIN_PASSWORD:-}&totp=&includeInfo=true"
       if grep -q '"status":"ok"' /tmp/t.json 2>/dev/null; then
@@ -59,18 +59,17 @@ data:
     done
     if grep -q '"status":"ok"' /tmp/t.json 2>/dev/null; then
       TOKEN=$(cat /tmp/t.json | tr \, \n | grep token | cut -d: -f2 | tr -d \")
-      echo "  ✓ API pronta"
+      echo "  ✓ API ready"
       ZONES=$(curl -s "http://localhost:5380/api/zones/list" -H "Authorization: Bearer $TOKEN")
       echo "$ZONES" | grep -q cluster.local || curl -s -X POST "http://localhost:5380/api/zones/create?zone=cluster.local&type=Forwarder&catalog=&protocol=UDP&forwarder=10.43.0.10&dnssecValidation=false&node=this-server" -H "Authorization: Bearer $TOKEN" && echo "  ✓ cluster.local" || echo "  ✗ cluster.local"
       echo "$ZONES" | grep -q unifi.localdomain || curl -s -X POST "http://localhost:5380/api/zones/create?zone=unifi.localdomain&type=Primary&catalog=&node=this-server" -H "Authorization: Bearer $TOKEN" && echo "  ✓ unifi.localdomain" || echo "  ✗ unifi.localdomain"
       echo "$ZONES" | grep -q '.*unifi.localdomain' || curl -s -X POST "http://localhost:5380/api/zones/records/add?node=this-server" -d "zone=unifi.localdomain&domain=*.unifi.localdomain&type=A&ttl=60&overwrite=true&comments=&expiryTtl=0&ipAddress=192.168.9.200&ptr=false&createPtrZone=false&updateSvcbHints=false" -H "Authorization: Bearer $TOKEN" && echo "  ✓ wildcard" || echo "  ✗ wildcard"
     else
-      echo "  ✗ API non disponibile"
+      echo "  ✗ API not available"
       cat /tmp/t.json 2>/dev/null
     fi
     echo "=== Bootstrap ==="
 
----
 apiVersion: apps/v1
 ---
 apiVersion: v1
@@ -82,13 +81,15 @@ metadata:
     app: technitium-dns
 type: Opaque
 stringData:
-  # Username per accedere alla web UI di Technitium
+  # Username to access the Technitium web UI
   admin-username: "admin"
-  # Password per accedere alla web UI di Technitium
-  # GENERARE UNA PASSWORD STRONG:
+  # Password to access the Technitium web UI
+  # GENERATE A STRONG PASSWORD:
   #   openssl rand -base64 32
   admin-password: "CHANGE-ME-USE-A-STRONG-PASSWORD"
 
+---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: technitium-dns
@@ -166,21 +167,21 @@ spec:
           securityContext:
             capabilities:
               add: ["NET_BIND_SERVICE"]
-          # Command: avvia bootstrap.sh che configura le zone, poi avvia Technitium
+          # Command: run bootstrap.sh which configures the zones, then start Technitium
           command:
             - sh
             - -c
             - |
-              # Copia Config se non esiste
+              # Copy Config if it does not exist
               if [ ! -f /opt/technitium/dns/config/Config ]; then
                 cp /bootstrap/Config /opt/technitium/dns/config/Config
               fi
-              # Avvia Technitium in background
+              # Start Technitium in background
               /opt/technitium/dns/start.sh &
               TECHNITUM_PID=$!
-              # Esegui bootstrap per configurare zone DNS (via sh)
+              # Run bootstrap to configure DNS zones (via sh)
               sh /bootstrap/bootstrap.sh
-              # Attendi Technitium
+              # Wait for Technitium
               wait $TECHNITUM_PID
 
       volumes:
@@ -192,7 +193,7 @@ spec:
             name: technitium-dns-config
 
 ---
-# PVC per configurazione persistente di Technitium
+# PVC for persistent Technitium configuration
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -209,7 +210,7 @@ spec:
   storageClassName: local-path
 
 ---
-# Service ClusterIP per la Web UI di Technitium
+# ClusterIP Service for the Technitium Web UI
 apiVersion: v1
 kind: Service
 metadata:
@@ -228,7 +229,7 @@ spec:
   type: ClusterIP
 
 ---
-# IngressRoute per accedere alla Web UI di Technitium
+# IngressRoute to access the Technitium Web UI
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -250,7 +251,7 @@ spec:
     secretName: unifi-localdomain-tls
 
 ---
-# Service LoadBalancer per il DNS (UDP/TCP 53)
+# LoadBalancer Service for DNS (UDP/TCP 53)
 apiVersion: v1
 kind: Service
 metadata:

@@ -21,7 +21,7 @@ Ensure 192.168.9.53 is not assigned to a physical device.
 3. Select the **UDM-Pro LAN** network (or the device network)
 4. Scroll down to **LAN** settings
 5. Verify that the **DHCP Range** does not include 192.168.9.53
-   - Example: if the range is `192.168.9.100-192.168.9.200`, 53 is already out of range ✅
+   - Example: if the range is `192.168.9.100-192.168.9.200`, 53 is already out of range
    - If the range includes .53, narrow it (e.g., `192.168.9.54-192.168.9.200`)
 
 ### Alternative: Static DHCP reservation (optional)

@@ -9,11 +9,11 @@ NEW_LINE="${TRAEFIK_IP}  ${SERVICES}"
 # Backup
 cp "$HOSTS_FILE" "${HOSTS_FILE}.bak.$(date +%Y%m%d_%H%M%S)"
 
-# Rimuovi vecchie righe k3s
+# Remove old k3s lines
 grep -v "unifi\.localdomain" "$HOSTS_FILE" > "${HOSTS_FILE}.tmp"
 mv "${HOSTS_FILE}.tmp" "$HOSTS_FILE"
 
-# Trova linea commento
+# Find comment line
 LINE_NUM=$(grep -n "$MARKER" "$HOSTS_FILE" | tail -1 | cut -d: -f1)
 
 if [ -n "$LINE_NUM" ]; then
@@ -27,12 +27,12 @@ if [ -n "$LINE_NUM" ]; then
     { print }
   ' "$HOSTS_FILE" > "${HOSTS_FILE}.tmp"
   mv "${HOSTS_FILE}.tmp" "$HOSTS_FILE"
-  echo "✅ hosts modificato: righe $((LINE_NUM + 1)) e $((LINE_NUM + 2))"
+  echo "hosts modified: lines $((LINE_NUM + 1)) and $((LINE_NUM + 2))"
 else
   echo "" >> "$HOSTS_FILE"
   echo "$MARKER" >> "$HOSTS_FILE"
   echo "$NEW_LINE" >> "$HOSTS_FILE"
-  echo "✅ hosts modificato: nuova sezione aggiunta"
+  echo "hosts modified: new section added"
 fi
 
 echo ""

@@ -28,12 +28,12 @@ spec:
 
 | Annotation | Required? | Example |
 |------------|-----------|---------|
-| `gethomepage.dev/enabled` | ✅ | `"true"` |
-| `gethomepage.dev/name` | ⚠️ | `"Home Assistant"` |
-| `gethomepage.dev/description` | ⚠️ | `"Smart home hub"` |
-| `gethomepage.dev/group` | ⚠️ | `"Infrastructure"` |
-| `gethomepage.dev/icon` | ⚠️ | `"home-assistant"` |
-| `gethomepage.dev/widget.type` | ❌ | `"home-assistant"` |
+| `gethomepage.dev/enabled` | YES | `"true"` |
+| `gethomepage.dev/name` | Optional | `"Home Assistant"` |
+| `gethomepage.dev/description` | Optional | `"Smart home hub"` |
+| `gethomepage.dev/group` | Optional | `"Infrastructure"` |
+| `gethomepage.dev/icon` | Optional | `"home-assistant"` |
+| `gethomepage.dev/widget.type` | No | `"home-assistant"` |
 
 ## Available icons
 
@@ -61,7 +61,7 @@ Full list: https://gethomepage.dev/latest/config-items/icons
 
 - **The dashboard itself**: Do not add annotations to the Homepage route, otherwise the dashboard will show itself as a card.
   ```yaml
-  # ⚠️ Do not annotate the Homepage route
+  # Do not annotate the Homepage route
   name: homepage
   namespace: flux-system
   ```

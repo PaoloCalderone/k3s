@@ -2,13 +2,13 @@
 
 The Homepage dashboard exposed on `dashboard.unifi.localdomain` automatically discovers all k3s cluster services exposed via Traefik.
 
-## ⚡ How It Works
+## How It Works
 
 Homepage reads the `gethomepage.dev/` annotations from your Traefik IngressRoutes and automatically creates a card for each service. When you create a new service, just add the annotations and push to the Git repo — Flux updates Homepage and the new card appears without restarts.
 
 ---
 
-## 📋 How to Add a New Service
+## How to Add a New Service
 
 ### 1. Create or update the IngressRoute with annotations
 
@@ -82,7 +82,7 @@ Full list: <https://gethomepage.dev/latest/config-items/icons>
 
 ---
 
-## 📦 Practical Examples
+## Practical Examples
 
 ### Example 1 — Home Assistant
 
@@ -169,16 +169,16 @@ spec:
 
 ---
 
-## ⚠️ What NOT to do
+## What NOT to do
 
 - **Do not annotate the Homepage route itself** with `gethomepage.dev/enabled: "true"`. Homepage recognizes `dashboard.unifi.localdomain` as the dashboard itself and hides it from cards. If you annotate it, the dashboard will show itself as one of its own cards.
 
   ```yaml
-  # ✅ CORRECT — empty page for its own route
+  # CORRECT — empty page for its own route
   name: homepage
   namespace: flux-system
 
-  # ❌ WRONG — shows itself as a card
+  # WRONG — shows itself as a card
   name: homepage
   annotations:
     gethomepage.dev/enabled: "true"
@@ -186,17 +186,17 @@ spec:
 
 ---
 
-## 🔧 Already Configured Services
+## Already Configured Services
 
 Currently auto-discovered via annotations on existing IngressRoutes:
 
 | Service | URL | Group | Icon | Widget |
 |---------|-----|-------|------|--------|
-| Grafana | `grafana.unifi.localdomain` | Monitoring | `grafana` | ✅ Grafana |
-| Prometheus | `prometheus.unifi.localdomain` | Monitoring | `prometheus` | ✅ Prometheus |
-| Alertmanager | `alertmanager.unifi.localdomain` | Monitoring | `alert` | ✅ Alertmanager |
+| Grafana | `grafana.unifi.localdomain` | Monitoring | `grafana` | Grafana |
+| Prometheus | `prometheus.unifi.localdomain` | Monitoring | `prometheus` | Prometheus |
+| Alertmanager | `alertmanager.unifi.localdomain` | Monitoring | `alert` | Alertmanager |
 
-## 🧪 Test Service
+## Test Service
 
 A test service has been created to verify functionality:
 
@@ -208,7 +208,7 @@ The test service is an nginx with a custom HTML page that confirms Homepage auto
 
 ---
 
-## 🧪 Testing the Configuration
+## Testing the Configuration
 
 ### Step 1 — Verify Deployment
 
@@ -259,7 +259,7 @@ kubectl delete -f flux/dashboard/test-service.yaml
 
 ---
 
-## 📁 Reference Files
+## Reference Files
 
 | File | Description |
 |------|-------------|
@@ -269,7 +269,7 @@ kubectl delete -f flux/dashboard/test-service.yaml
 | `flux/dashboard/kustomization.yaml` | Kustomization for Flux |
 | `clusters/homelab/dashboard.yaml` | Flux Kustomization that triggers deployment |
 
-## 🔗 Useful Resources
+## Useful Resources
 
 - Homepage docs: <https://gethomepage.dev>
 - Icons: <https://gethomepage.dev/latest/config-items/icons>

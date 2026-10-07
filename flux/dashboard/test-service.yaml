@@ -1,7 +1,7 @@
 ---
-# Service di test per verificare la scoperta automatica su Homepage
-# Accesso: http://test.unifi.localdomain
-# Appare sulla dashboard con nome "Test" e gruppo "Infrastruttura"
+# Test service to verify automatic discovery on Homepage
+# Access: http://test.unifi.localdomain
+# Appears on the dashboard as "Test" in the "Infrastructure" group
 
 ---
 # Namespace test
@@ -13,7 +13,7 @@ metadata:
     app: homepage-test
 
 ---
-# Deployment: nginx con pagina custom "Pagina di Test Homepage"
+# Deployment: nginx with a custom "Homepage Test" page
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -53,7 +53,7 @@ spec:
             name: test-page-index
 
 ---
-# ConfigMap con pagina HTML custom per il test
+# ConfigMap with a custom HTML page for the test
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -62,7 +62,7 @@ metadata:
 data:
   index.html: |
     <!DOCTYPE html>
-    <html lang="it">
+    <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -109,10 +109,10 @@ data:
     </head>
     <body>
       <div class="card">
-        <h1>🧪 Homepage Test</h1>
+        <h1>Homepage Test</h1>
         <p>
-          Questo servizio conferma che Homepage scopre automaticamente
-          le tue Traefik IngressRoute.<br><br>
+          This service confirms that Homepage automatically discovers
+          your Traefik IngressRoutes.<br><br>
           <strong>Dashboard:</strong> dashboard.unifi.localdomain
         </p>
         <span class="badge">test.unifi.localdomain</span>
@@ -121,7 +121,7 @@ data:
     </html>
 
 ---
-# Service: ClusterIP (MetalLB non serve per test interno)
+# Service: ClusterIP (MetalLB not needed for internal test)
 apiVersion: v1
 kind: Service
 metadata:
@@ -138,8 +138,8 @@ spec:
   type: ClusterIP
 
 ---
-# IngressRoute Traefik — esposto su test.unifi.localdomain
-# La annotation gethomepage.dev/enabled: "true" dice a Homepage di creare una card.
+# Traefik IngressRoute — exposed on test.unifi.localdomain
+# The gethomepage.dev/enabled: "true" annotation tells Homepage to create a card.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -148,8 +148,8 @@ metadata:
   annotations:
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Test"
-    gethomepage.dev/description: "Servizio di test per Homepage"
-    gethomepage.dev/group: "Infrastruttura"
+    gethomepage.dev/description: "Test service for Homepage"
+    gethomepage.dev/group: "Infrastructure"
     gethomepage.dev/icon: "flask"
 spec:
   entryPoints:

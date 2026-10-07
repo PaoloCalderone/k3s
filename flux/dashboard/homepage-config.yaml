@@ -1,7 +1,7 @@
 ---
-# ConfigMap per Homepage v2 — settings.yaml
-# WARNING: I servizi devono essere in services.yaml (file separato)
-# Questa configurazione contiene SOLO le impostazioni
+# ConfigMap for Homepage v2 — settings.yaml
+# WARNING: Services must be in services.yaml (separate file)
+# This configuration contains ONLY the settings
 
 apiVersion: v1
 kind: ConfigMap
@@ -20,13 +20,13 @@ data:
       squareTiles: true
       showSearch: true
       searchProvider: "google"
-      searchPlaceholder: "Cerca servizi..."
-      language: "it"
+      searchPlaceholder: "Search services..."
+      language: "en"
       icon: "material-symbols"
 
     categories:
       - name: "Monitoring"
-      - name: "Infrastruttura"
+      - name: "Infrastructure"
       - name: "Cluster"
 
     widgets:

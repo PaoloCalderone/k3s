@@ -1,6 +1,6 @@
 ---
-# Homepage dashboard — kustomization per Flux
-# Raccoglie: HelmRelease, ConfigMap, IngressRoute, Test Service
+# Homepage dashboard — kustomization for Flux
+# Collects: HelmRelease, ConfigMap, IngressRoute, Test Service
 
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

@@ -1,9 +1,9 @@
 ---
-# ConfigMap separato per Homepage v2 — services.yaml
-# Homepage v2.4.0 - servizi raggiungibili dal browser via Traefik
+# Separate ConfigMap for Homepage v2 — services.yaml
+# Homepage v2.4.0 - services reachable from the browser via Traefik
 #
-# NOTA: Grafana API key è in un Kubernetes Secret (homepage-secrets)
-# e viene iniettata via initContainer in /app/config/services.yaml
+# NOTE: Grafana API key is in a Kubernetes Secret (homepage-secrets)
+# and is injected via initContainer into /app/config/services.yaml
 
 apiVersion: v1
 kind: ConfigMap
@@ -15,23 +15,23 @@ data:
     - Monitoring:
         - Grafana:
             url: "https://grafana.unifi.localdomain"
-            description: "Dashboard e visualizzazioni"
+            description: "Dashboards and visualizations"
             icon: "grafana"
             widget:
               type: "grafana"
               url: "https://grafana.unifi.localdomain"
         - Prometheus:
             url: "https://prometheus.unifi.localdomain"
-            description: "Metriche e monitoring"
+            description: "Metrics and monitoring"
             icon: "prometheus"
             widget:
               type: "prometheus"
               url: "https://prometheus.unifi.localdomain"
         - Alertmanager:
             url: "https://alertmanager.unifi.localdomain"
-            description: "Notifiche e allarmi"
+            description: "Notifications and alerts"
             icon: "alert"
-    - Infrastruttura:
+    - Infrastructure:
         - Traefik:
             url: "https://traefik.unifi.localdomain"
             description: "Ingress controller"
@@ -42,7 +42,7 @@ data:
     - Cluster:
         - Node Stats:
             url: "https://node-stats.unifi.localdomain"
-            description: "Statistiche nodi k3s"
+            description: "K3s node statistics"
             icon: "server"
             widget:
               type: "iframe"

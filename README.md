@@ -1,8 +1,8 @@
-# ⚡ K3s HA Homelab on Proxmox
+# K3s HA Homelab on Proxmox
 
 A lightweight, **highly-available Kubernetes** cluster across three Proxmox hosts — provisioned with Terraform, powered by K3s, and driven by GitOps with Flux.
 
-## 🏗️ Architecture
+## Architecture
 
 | VM      | VMID | Host | IP            | Role                        |
 |---------|------|------|---------------|------------------------------|
@@ -21,7 +21,7 @@ A lightweight, **highly-available Kubernetes** cluster across three Proxmox host
 
 > The legacy `9099` VMID is gone: kube-vip exposes the API endpoint on all three control planes, so no single HAProxy VM is needed.
 
-## 🚀 Prerequisites
+## Prerequisites
 
 - Terraform, `kubectl`, and the Flux CLI
 - Proxmox API token in `PROXMOX_VE_API_TOKEN`
@@ -39,7 +39,7 @@ terraform validate
 
 Terraform provisions an Ubuntu 24.04 cloud-init template and six VMs. It does **not** install K3s or store K3s tokens in state.
 
-## 🔥 Bootstrap K3s
+## Bootstrap K3s
 
 ```bash
 cd ../..
@@ -65,7 +65,7 @@ flux bootstrap github \
 
 Never pass a GitHub token on the command line — use Flux's supported GitHub auth. K3s 1.32 needs Flux 2.7.x (the 2.9.x CLI requires Kubernetes 1.33+). `clusters/homelab` reconciles MetalLB then its IP pool (HelmRelease Ready → config), and NFS CSI the same two-phase way; the sample app stays disabled. NFS needs `nfs-common` on every node. `nfs-csi` is **not** the default StorageClass — set `storageClassName: nfs-csi` on your PVCs; `local-path` stays the default.
 
-## ✅ Minimal Validation
+## Minimal Validation
 
 ```bash
 terraform -chdir=infrastructure/terraform validate
@@ -75,7 +75,7 @@ KUBECONFIG=./kubeconfig kubectl wait --for=condition=Ready nodes --all --timeout
 KUBECONFIG=./kubeconfig kubectl get pods -A
 ```
 
-## 🔒 Security & Backups
+## Security & Backups
 
 - SSH by key only — no passwords in the repo.
 - K3s token and kubeconfig are git-ignored.

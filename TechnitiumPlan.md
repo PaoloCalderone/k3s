@@ -56,7 +56,7 @@ Zones are stored in the PVC and persist across restarts.
 ```
 $ nslookup kubernetes.default.svc.cluster.local 192.168.9.53
 Name: kubernetes.default.svc.cluster.local
-Address: 10.43.0.1 ✅
+Address: 10.43.0.1
 ```
 
 ### google.com (external DNS)
@@ -64,28 +64,28 @@ Address: 10.43.0.1 ✅
 $ nslookup google.com 192.168.9.53
 Non-authoritative answer:
 Name: google.com
-Address: 192.178.194.100 ✅
+Address: 192.178.194.100
 ```
 
 ### grafana.unifi.localdomain (wildcard)
 ```
 $ nslookup grafana.unifi.localdomain 192.168.9.53
 Name: grafana.unifi.localdomain
-Address: 192.168.9.200 ✅
+Address: 192.168.9.200
 ```
 
 ### prometheus.unifi.localdomain (wildcard)
 ```
 $ nslookup prometheus.unifi.localdomain 192.168.9.53
 Name: prometheus.unifi.localdomain
-Address: 192.168.9.200 ✅
+Address: 192.168.9.200
 ```
 
 ### homepage.unifi.localdomain (wildcard)
 ```
 $ nslookup homepage.unifi.localdomain 192.168.9.53
 Name: homepage.unifi.localdomain
-Address: 192.168.9.200 ✅
+Address: 192.168.9.200
 ```
 
 ## Next Steps (Required Actions)
@@ -125,7 +125,7 @@ dig @192.168.9.53 prometheus.unifi.localdomain
 
 ### Final Session
 - **Date**: 2026-10-05
-- **Status**: ✅ COMPLETED
+- **Status**: COMPLETED
 - **Modified files**:
   - `flux/dns/release.yaml` — Complete deployment with bootstrap and persistence
   - `flux/dns/kustomization.yaml` — Corrected Flux Kustomization

@@ -1,13 +1,13 @@
 # ============================================================
 # .gitignore — K3s Talos Homelab
-# File sensibili: MAI nel repository
+# Sensitive files: NEVER in the repository
 # ============================================================
 
-# --- Dati di configurazione reali (contengono IP reali, nomi, segreti) ---
+# --- Real configuration data (contains real IPs, names, secrets) ---
 *.tfvars
 !*.tfvars.example
 
-# --- Credenziali e token ---
+# --- Credentials and tokens ---
 *.pem
 *.key
 *.env
@@ -16,14 +16,14 @@
 .env.*.local
 !env.example
 
-# --- Kubeconfig generato (contiene certificati e token) ---
+# --- Generated kubeconfig (contains certificates and tokens) ---
 .kubeconfig/
 kubeconfig
 kubeconfig.*
 *.conf
 !kubeconfig.example
 
-# --- File temporanei e cache ---
+# --- Temporary files and cache ---
 .terraform/
 .terraform.rc
 terraform.tfstate
@@ -32,21 +32,21 @@ terraform.tfstate.*.backup
 *.tfstate
 *.tfstate.backup
 *.tfstate.*.backup
-# .terraform.lock.hcl va versionato per rendere riproducibili i provider.
+# .terraform.lock.hcl should be versioned to make providers reproducible.
 
-# --- Download locale (immagini Talos scaricate localmente) ---
+# --- Local download (Talos images downloaded locally) ---
 /tmp/talos-iso/
 .artifacts/
 *.iso
 *.raw
 *.raw.zst
 
-# --- Log e debug ---
+# --- Logs and debug ---
 *.log
 logs/
 debug.log
 
-# --- OS e Editor ---
+# --- OS and Editor ---
 .DS_Store
 Thumbs.db
 *.swp
@@ -56,11 +56,11 @@ Thumbs.db
 .vscode/
 *.bak
 
-# --- Scripts temporanei ---
+# --- Temporary scripts ---
 *.tmp
 *.tmp.sh
 
-# --- Terrafom plan e status ---
+# --- Terraform plan and status ---
 tfplan
 .nfs-status
 

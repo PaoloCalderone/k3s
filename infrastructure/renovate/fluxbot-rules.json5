@@ -1,9 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/fluxcd/flux2/manifests/flux-system/kustomization.yaml",
   "comments": [
-    "Queste sono le regole per Fluxbot (https://github.com/apps/fluxbot)",
-    "Fluxbot monitora le modifiche allo schema di Talos/Kubernetes",
-    "e crea PR automaticamente per l'aggiornamento dei manifests."
+    "These are the rules for Fluxbot (https://github.com/apps/fluxbot)",
+    "Fluxbot monitors changes to the Talos/Kubernetes schema",
+    "and creates PRs automatically for updating the manifests."
   ],
 
   "bot": {
@@ -14,7 +14,7 @@
     }
   },
 
-  // Le regole per Fluxbot: crea PR quando le risorse Talos/K8s cambiano schema
+  // Fluxbot rules: create PRs when Talos/K8s resources change schema
   "rules": [
     {
       "name": "talos-schematic-upgrade",

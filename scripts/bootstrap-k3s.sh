@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-trap 'rc=$?; printf "\033[31m[ERROR]\033[0m Riga %s (exit %s): %s\n" "$LINENO" "$rc" "$BASH_COMMAND" >&2' ERR
+trap 'rc=$?; printf "\033[31m[ERROR]\033[0m Line %s (exit %s): %s\n" "$LINENO" "$rc" "$BASH_COMMAND" >&2' ERR
 
 SSH_USER="${SSH_USER:-ubuntu}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/k3s_homelab}"
@@ -26,7 +26,7 @@ wait_remote() {
   done
 }
 
-for command in ssh scp kubectl openssl nc python3; do command -v "$command" >/dev/null || die "$command non disponibile"; done
+for command in ssh scp kubectl openssl nc python3; do command -v "$command" >/dev/null || die "$command not available"; done
 mkdir -p "$(dirname "$TOKEN_FILE")"
 chmod 700 "$(dirname "$TOKEN_FILE")"
 if [[ ! -s "$TOKEN_FILE" ]]; then umask 077; openssl rand -hex 32 > "$TOKEN_FILE"; fi
@@ -34,13 +34,13 @@ chmod 600 "$TOKEN_FILE"
 TOKEN="$(<"$TOKEN_FILE")"
 
 for ip in "${CP_IPS[@]}" "${WORKER_IPS[@]}"; do
-  log "Attendo SSH su $ip"
+  log "Waiting for SSH on $ip"
   wait_remote "$ip" true "SSH" 300
-  remote "$ip" "sudo -n true" || die "sudo senza password non disponibile su $ip"
+  remote "$ip" "sudo -n true" || die "passwordless sudo not available on $ip"
   cloud_rc=0
   cloud_output="$(remote "$ip" "sudo -n cloud-init status --wait" 2>&1)" || cloud_rc=$?
   printf '%s\n' "$cloud_output"
-  [[ $cloud_rc -eq 0 || $cloud_rc -eq 2 ]] || die "cloud-init fallito su $ip"
+  [[ $cloud_rc -eq 0 || $cloud_rc -eq 2 ]] || die "cloud-init failed on $ip"
   remote "$ip" "sudo -n install -d -m 0755 /etc/rancher/k3s && command -v curl >/dev/null && dpkg-query -W nfs-common >/dev/null 2>&1" || \
     remote "$ip" "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update && sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y curl nfs-common"
 done
@@ -79,11 +79,11 @@ install_server() {
   wait_remote "$ip" "sudo k3s kubectl get --raw=/readyz" "K3s server readyz" 600
 }
 
-log "Configuro cp1"
+log "Configuring cp1"
 install_server "${CP_IPS[0]}" init
-for ip in "${CP_IPS[@]:1}"; do log "Configuro server $ip"; install_server "$ip" join; done
+for ip in "${CP_IPS[@]:1}"; do log "Configuring server $ip"; install_server "$ip" join; done
 
-log "Installo kube-vip"
+log "Installing kube-vip"
 remote "${CP_IPS[0]}" "sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl apply -f -" <<EOF
 apiVersion: v1
 kind: ServiceAccount
@@ -129,11 +129,11 @@ until nc -z -w 2 "$VIP" 6443 2>/dev/null; do
 done
 
 for ip in "${WORKER_IPS[@]}"; do
-  log "Configuro agent $ip"
+  log "Configuring agent $ip"
   if remote "$ip" "systemctl list-unit-files k3s.service >/dev/null 2>&1"; then remote "$ip" "sudo /usr/local/bin/k3s-uninstall.sh" || true; fi
   remote "$ip" "sudo rm -f /etc/rancher/k3s/config.yaml" || true
   remote "$ip" "curl -sfL https://get.k3s.io | sudo env K3S_URL='https://$VIP:6443' K3S_TOKEN='$TOKEN' INSTALL_K3S_VERSION='$K3S_VERSION' INSTALL_K3S_EXEC='agent --node-ip=$ip --flannel-iface=$INTERFACE' sh -"
-  wait_remote "$ip" "systemctl is-active --quiet k3s-agent" "k3s-agent attivo" 300
+  wait_remote "$ip" "systemctl is-active --quiet k3s-agent" "k3s-agent active" 300
 done
 
 remote "${CP_IPS[0]}" "sudo cat /etc/rancher/k3s/k3s.yaml" > "$KUBECONFIG_OUT"
@@ -147,4 +147,4 @@ PY
 export KUBECONFIG="$KUBECONFIG_OUT"
 kubectl wait --for=condition=Ready nodes --all --timeout=10m
 kubectl get nodes -o wide
-log "Cluster K3s operativo. Kubeconfig: $KUBECONFIG_OUT"
+log "K3s cluster operational. Kubeconfig: $KUBECONFIG_OUT"

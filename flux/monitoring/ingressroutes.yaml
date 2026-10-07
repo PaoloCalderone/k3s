@@ -1,5 +1,5 @@
 ---
-# Grafana IngressRoute — esposto su grafana.unifi.localdomain
+# Grafana IngressRoute — exposed at grafana.unifi.localdomain
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -26,7 +26,7 @@ spec:
           port: 3000
 
 ---
-# Prometheus IngressRoute — esposto su prometheus.unifi.localdomain
+# Prometheus IngressRoute — exposed at prometheus.unifi.localdomain
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -36,7 +36,7 @@ metadata:
   annotations:
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Prometheus"
-    gethomepage.dev/description: "Metriche e monitoring"
+    gethomepage.dev/description: "Metrics and monitoring"
     gethomepage.dev/group: "Monitoring"
     gethomepage.dev/icon: "prometheus"
     gethomepage.dev/widget.type: "prometheus"
@@ -53,7 +53,7 @@ spec:
           port: 9090
 
 ---
-# Alertmanager IngressRoute — esposto su alertmanager.unifi.localdomain
+# Alertmanager IngressRoute — exposed at alertmanager.unifi.localdomain
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -63,7 +63,7 @@ metadata:
   annotations:
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Alertmanager"
-    gethomepage.dev/description: "Notifiche e allarmi"
+    gethomepage.dev/description: "Notifications and alerts"
     gethomepage.dev/group: "Monitoring"
     gethomepage.dev/icon: "alert"
     gethomepage.dev/widget.type: "alertmanager"

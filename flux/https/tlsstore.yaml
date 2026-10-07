@@ -1,7 +1,7 @@
 ---
-# Traefik TLSStore — usa unifi.localdomain come certificato di default
-# Il secret unifi-localdomain-tls DEVE esistere nel namespace kube-system (dove gira Traefik).
-# Copia il secret da flux-system a kube-system:
+# Traefik TLSStore — uses unifi.localdomain as the default certificate
+# The secret unifi-localdomain-tls MUST exist in the kube-system namespace (where Traefik runs).
+# Copy the secret from flux-system to kube-system:
 #   kubectl -n flux-system get secret unifi-localdomain-tls -o yaml | sed 's/namespace: flux-system/namespace: kube-system/' | kubectl apply -f -
 
 apiVersion: traefik.io/v1alpha1

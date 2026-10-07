@@ -1,4 +1,4 @@
-# 📋 Change Summary — From 1 CP + 2 Workers to 3 CP + 3 Workers (HA)
+# Change Summary — From 1 CP + 2 Workers to 3 CP + 3 Workers (HA)
 
 ## Summary of Changes
 

@@ -2,7 +2,7 @@
 
 Date: 2025-09-30
 
-## 🆕 Files Created
+## Files Created
 
 ### `flux/dashboard/` (new directory)
 
@@ -35,7 +35,7 @@ Date: 2025-09-30
 
 ---
 
-## 🔧 Files Modified
+## Files Modified
 
 ### `clusters/homelab/kustomization.yaml`
 - Added `dashboard.yaml` to the resources list
@@ -48,7 +48,7 @@ Date: 2025-09-30
 
 ---
 
-## 📊 Expected Result
+## Expected Result
 
 Accessing `https://dashboard.unifi.localdomain` will show:
 
@@ -65,7 +65,7 @@ Accessing `https://dashboard.unifi.localdomain` will show:
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 After pushing the changes to the Git repo:
 
@@ -77,7 +77,7 @@ flux reconcile kustomization dashboard -n flux-system
 # Or wait for the sync interval: 10m
 ```
 
-## 🧪 Validation
+## Validation
 
 ```bash
 # Validation script
@@ -89,7 +89,7 @@ kubectl get pods -n test
 curl -k https://dashboard.unifi.localdomain
 ```
 
-## ⚠️ Notes
+## Notes
 
 - Homepage reads annotations from **all** IngressRoutes in the cluster (including other namespaces)
 - `test.unifi.localdomain` is for testing only: you can remove it by deleting `flux/dashboard/test-service.yaml`

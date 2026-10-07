@@ -1,10 +1,10 @@
 ---
 # Homepage v2 — init-scripts ConfigMap
-# Contiene lo script Node.js per iniettare la Grafana API key
-# nel services.yaml all'avvio del pod.
+# Contains the Node.js script to inject the Grafana API key
+# into services.yaml at pod startup.
 #
-# NOTA: Questo ConfigMap deve essere referenziato nel deployment
-# dell'initContainer per funzionare correttamente.
+# NOTE: This ConfigMap must be referenced in the deployment
+# of the initContainer to work correctly.
 
 apiVersion: v1
 kind: ConfigMap
@@ -53,7 +53,7 @@ data:
           const indent = match ? match[1] : '              ';
           result.push(indent + 'apiKey: "' + API_KEY + '"');
           foundWidgetUrl = true;
-          console.log('✅ Grafana API key injected after widget url line');
+          console.log('Grafana API key injected after widget url line');
         }
 
         // Reset if we hit a new service group (line starting with "- " at lower indent)
@@ -68,7 +68,7 @@ data:
       }
 
       fs.writeFileSync(SERVICES_YAML_PATH, result.join('\n'));
-      console.log('✅ services.yaml updated successfully');
+      console.log('services.yaml updated successfully');
     } catch (error) {
       console.error('ERROR: ' + error.message);
       process.exit(1);
